@@ -1,0 +1,53 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+	<title>Quake 3 colors</title>
+	<meta name="keywords" content="" />
+	<meta name="description" content="" />
+	<link rel="stylesheet" href="quake-gfx.css" type="text/css" />
+	<script src="quake-gfx.js"></script>
+</head>
+
+<body id="body" style="background-color:#111">
+
+<div class="content" id="content">
+	<div class="nickNameBlock">
+		<input id="nickname" type="text" value="^1A^2n^3a^4r^5k^6i" oninput="onChangeNickname()" onkeypress="if (document.getElementById('nickname').value.length > 34) return false;" />
+	</div>
+	<canvas id="scene" style="border: 1px solid #333;letter-spacing: 3.4px;" width="800" height="450">Quake 3 GFX</canvas>
+</div>
+
+	
+<script>
+
+function onChangeNickname()
+{
+	var nickname = document.getElementById("nickname").value;
+	Q3GFX_ChangeNickname(q3gfx, nickname);
+}
+
+function onKeyPressValidate()
+{
+	var nickname = document.getElementById("nickname").value;
+	if (nickname.length >= 35)
+		return false;
+		
+	return true;
+}
+
+// Max name size is 35 for OSP
+var params = {
+	canvasId:"scene",
+	backgroundImage: "bg1.jpg",
+	nickname:document.getElementById("nickname").value,
+	width:800,
+	height:450,
+};
+		
+var q3gfx = Q3GFX_Initialize(params);
+
+</script>
+
+</body>
+</html>
