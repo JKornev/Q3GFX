@@ -8,7 +8,7 @@ var s_blinkingTimerInterval = 50;
 
 function Q3GFX_Initialize(params)
 {
-	var context = { params: params };
+	var context = { params: params, gfxname: [], half: 1 };
 	
 	var canvas = context.canvas = document.getElementById(params.canvasId);
 	var ctx2d  = context.ctx2d  = canvas.getContext("2d");
@@ -17,8 +17,7 @@ function Q3GFX_Initialize(params)
 	ctx2d.fillStyle = "rgb(100, 100, 100)";
 	ctx2d.fillRect(0, 0, params.width, params.height);
 	
-	context.gfxname = ParseGFX_OSPStyleNew(params.nickname);
-	context.half = 1;
+	ParseGFX_OSPStyle(context, params.nickname);
 	
 	Q3GFX_ChangeBackground(context, params.backgroundImage);
 	
@@ -31,7 +30,7 @@ function Q3GFX_Initialize(params)
 function Q3GFX_ChangeNickname(context, nickname)
 {
 	context.params.nickname = nickname;
-	context.gfxname = ParseGFX_OSPStyleNew(nickname);
+	ParseGFX_OSPStyle(context, context.params.nickname);
 	UpdateScene(context);
 }
 
@@ -117,7 +116,7 @@ function UpdateScene(context)
 	if (context.hasOwnProperty("background"))
 		ctx2d.drawImage(context.background, 0, 0, params.width, params.height);
 	
-	DrawNicknameBar(context, context.gfxname)
+	DrawNicknameBar(context, context.gfxname[context.half])
 }
 
 function DrawNicknameBar(context, gfx)
@@ -134,7 +133,7 @@ function DrawNicknameBar(context, gfx)
 	if (gfx.length > 22)
 		params.size = params.size - ((gfx.length - 23) * 1.4);
 	
-	gfx = FilterGFXTextByHalf(gfx, context.half);
+	//gfx = FilterGFXTextByHalf(gfx, context.half);
 	
 	DrawGFXText(context, gfx, params);
 }
@@ -184,122 +183,111 @@ function FilterGFXTextByHalf(gfx, half)
 	return newGFX;
 }
 
-function ParseGFX_OSPStyleNew(text)
+function ParseGFX_VQ3Style(context, nickname)
 {
-	//TODO: 
-	// - whitespaces filtering
-	// - special cases ^^y
+	context.gfxname[0] = context.gfxname[1] = ParseGFX(nickname, 0);
+}
+
+function ParseGFX_OSPStyle(context, nickname)
+{
+	context.gfxname[0] = ParseGFX(nickname, 0);
+	context.gfxname[1] = ParseGFX(nickname, 1);
+}
+
+function ParseGFX(text, half)
+{
 	var command = false;
 	var blinking = false;
-	var customColor = false;
+	var overwrite = false;
+	var skip = false;
+	var colors = { 
+		front:[255, 255, 255], 
+		back:[0, 0, 0], 
+		custom:false 
+	};
 	var gfxs = [];
 	
-	var index = 0;
-	var global = true;
-					
-	var colors = [
-		{ front:[255, 255, 255], back:[0, 0, 0], custom:false },
-		{ front:[255, 255, 255], back:[0, 0, 0], custom:false }
-	];
-	
-	function setFrontColor(front)
+	function putCharToGFXArray()
 	{
-		colors[index].front = front;
-		if (global)
-			colors[index == 0 ? 1 : 0].front = front;
-	}
-	
-	function setBackColor(back)
-	{
-		colors[index].back = back;
-		if (global)
-			colors[index == 0 ? 1 : 0].back = back;
-	}
-	
-	function setCustomFrontColor()
-	{
-		for (var b = 0; b < 2; b++)
-			if (colors[b].custom)
-			{
-				colors[b].front = colors[b].back;
-				colors[b].custom = false;
-			}
-	}
-	
-	function addGfx()
-	{
-		for (var b = 0; b < 2; b++)
-		{
-			//var inx = ((!global && b != index) ? 0 : b);
-			if (!global && b != index)
-				continue;
-			
-			gfxs[a++] = {
-				symbol: chr,
-				color: colors[b].front,
-				backgroundColor: colors[b].back,
-				blink: blinking,
-				displayHalf: b
-			};
-		}
+		gfxs[a++] = {
+			symbol: chr,
+			color: colors.front,
+			backgroundColor: colors.back,
+			blink: blinking,
+			displayHalf:0 //TODO: remove it
+		};
 	}
 	
 	for (var i = 0, a = 0; i < text.length; i++)
 	{
 		var chr = text.charAt(i);
 		
+		if (overwrite)
+		{
+			overwrite = false;
+			gfxs.pop(), a--;
+		}
+		
 		if (command)
 		{
-			if (chr == 'b' || chr == 'B')
-			{
-				blinking = true;
+			if (skip && chr != 'N'&& chr != 'f'&& chr != 'F')
+				continue;
 				
-				setCustomFrontColor();
-			}
-			else if (chr =='F')
+			switch (chr)
 			{
-				index = 1;
-				global = false;
-			}
-			else if (chr =='f')
-			{
-				index = 0;
-				global = false;
-			}
-			else if (chr =='N' || chr =='n')
-			{
-				blinking = false;
-				
-				//Are they friends?
-				setCustomFrontColor();
-				
-				if (chr =='N')
-				{
-					global = true;
-					index = 0;
-				}
-			}
-			else if (chr =='x' || chr =='X')
-			{
-				var rgbtext = text.substring(i + 1, i + 7);
-				if (ValidateRGBText(rgbtext))
-				{
-					setBackColor( ParseRGBToVector(rgbtext, i) );
-					colors[index].custom = true;
-					i += 6;
-				}
-			}
-			else if (chr =='^')
-			{
-				//Special case like in x0r^^y
-				addGfx();
-				addGfx();
-				a--;
-			}
-			else
-			{
-				setFrontColor( ConvertCharToColorVector(chr) );
-			}
+				case 'b':
+				case 'B':
+					blinking = true;
+					if (colors.custom)
+					{
+						colors.front = colors.back;
+						colors.custom = false;
+					}
+					break;
+				case 'f':
+					skip = (half == 1);
+					break;
+				case 'F':
+					skip = (half == 0);
+					break;
+				case 'n':
+					blinking = false;
+					if (colors.custom)
+					{
+						colors.front = colors.back;
+						colors.custom = false;
+					}
+				case 'N':
+					blinking = false;
+					if (colors.custom)
+					{
+						colors.front = colors.back;
+						colors.custom = false;
+					}
+					skip = false;
+					break;
+				case 'x':
+				case 'X':
+					var rgbtext = text.substring(i + 1, i + 7);
+					if (ValidateRGBText(rgbtext))
+					{
+						colors.back = ParseRGBToVector(rgbtext, i);
+						colors.custom = true;
+						i += 6;
+					}
+					break;
+				case '^':
+					putCharToGFXArray();
+					putCharToGFXArray();
+					overwrite = true;
+					continue;
+				default:
+					if (/^\d+$/.test(chr))
+					{	
+						colors.front = ConvertCharToColorVector(chr, colors.front);
+						colors.custom = false;
+					}
+			};
 			
 			command = false;
 			continue;
@@ -313,183 +301,18 @@ function ParseGFX_OSPStyleNew(text)
 			}
 		}
 		
-		addGfx();
-		/*for (var b = 0; b < 2; b++)
-		{
-			//var inx = ((!global && b != index) ? 0 : b);
-			if (!global && b != index)
-				continue;
-			
-			gfxs[a++] = {
-				symbol: chr,
-				color: colors[b].front,
-				backgroundColor: colors[b].back,
-				blink: blinking,
-				displayHalf: b
-			};
-		}*/
+		if (skip)
+			continue;
+		
+		putCharToGFXArray();
 	}
 	
 	return gfxs;
 }
 
-/*function ParseGFX_OSPStyle(text)
-{ //TODO: delete me
-	var command = false;
-	var blinking = false;
-	var customColor = false;
-	var gfxs = [];
-	var opaque = s_blinkingOpaque;
-	//var color = [255, 255, 255];
-	//var backgroundColor = [0, 0, 0];
-	//var globalMainColor = color;
-	//var globalBackgroundColor = backgroundColor;
-	var index = 0; 	// 0 - means global display 
-					// 1 - first parf of second
-					// 2 - second part of second
-
-	//TODO: implement global color for ^F - ^f cases
-	var colors = [];
-	for (var i = 0; i < 3; i++)
-		colors[i] = {front:[255, 255, 255], back:[0, 0, 0], custom:false};
-	
-	function setFrontColor(front)
-	{
-		if (index == 0)
-		{
-			colors[0].front = front;
-			for (var b = 1; b < 3; b++)
-				if (!colors[index].custom)
-					colors[b].front = front;
-		}
-		else
-		{
-			colors[index].front = front;
-			colors[index].custom = true;
-		}
-	}
-	
-	function setBackColor(back)
-	{
-		if (index == 0)
-		{
-			colors[0].back = back;
-			for (var i = 1; i < 3; i++)
-				if (!colors[index].custom)
-					colors[i].back = back;
-		}
-		else
-		{
-			colors[index].back = back;
-			colors[index].custom = true;
-		}
-	}
-	
-	function switchIndex(inx)
-	{
-		index = inx;
-		var copy = (colors[inx].custom ? inx : 0);
-		setFrontColor(colors[copy].front);
-		setBackColor(colors[copy].back);
-	}
-		
-	for (var i = 0, a = 0; i < text.length; i++)
-	{
-		var chr = text.charAt(i);
-		var gfx =
-		{
-			symbol: chr,
-			color: colors[index].front,
-			backgroundColor: colors[index].back,
-			blink: blinking,
-			displayHalf: index
-		};
-
-		if (command)
-		{
-			if (chr == 'b' || chr == 'B')
-			{
-				blinking = true;
-				
-				if (customColor)
-				{
-					//color = backgroundColor;
-					setFrontColor(colors[index].back);
-					customColor = false;
-				}
-			}
-			else if (chr =='F')
-			{
-				//index = 1;
-				//color = global;
-				//setFrontColor(colors[0].front);
-				//setBackColor(colors[0].back);
-				switchIndex(1);
-			}
-			else if (chr =='f')
-			{
-				//index = 2;
-				//color = global;
-				//setFrontColor(colors[0].front);
-				//setBackColor(colors[0].back);
-				switchIndex(2);
-			}
-			else if (chr =='N' || chr =='n')
-			{
-				blinking = false;
-				
-				if (chr =='N')
-					index = 0;
-				//Are they friends?
-				if (customColor)
-				{
-					//color = backgroundColor;
-					setFrontColor(colors[index].back);
-					customColor = false;
-				}
-			}
-			else if (chr =='x' || chr =='X')
-			{
-				var rgbtext = text.substring(i + 1, i + 7);
-				if (ValidateRGBText(rgbtext))
-				{
-					//backgroundColor = ParseRGBToVector(rgbtext, i);
-					setBackColor(ParseRGBToVector(rgbtext, i));
-					customColor = true;
-					i += 6;
-				}
-			}
-			else if (chr =='^')
-			{
-				//Special case like in x0r^^y
-			}
-			else
-			{
-				//color = ConvertCharToColorVector(chr);
-				setFrontColor(ConvertCharToColorVector(chr));
-			}
-			
-			command = false;
-			continue;
-		}
-		else
-		{
-			if (chr =='^')
-			{
-				command = true;
-				continue;
-			}
-		}
-		
-		gfxs[a++] = gfx;
-	}
-	
-	return gfxs;
-}*/
-
-function ConvertCharToColorVector(chr)
+function ConvertCharToColorVector(chr, dflt)
 {
-	var color = [255, 255, 255];
+	var color = dflt;
 	
 	switch (chr)
 	{
