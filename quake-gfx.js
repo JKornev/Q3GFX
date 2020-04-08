@@ -6,8 +6,23 @@ var s_blinkingTimerInterval = 50;
 //  Public interface
 // ==================
 
+
 function Q3GFX_Initialize(params)
 {
+	/*
+	context stucture
+		params: 
+			canvasId:			(string) canvas id
+			backgroundImage:	(string) background image path
+			nickname:			(string) nick name
+			width:				(int) background image width
+			height:				(int) background image height
+		canvas: 	(object) canvas object where we draw a scene
+		ctx2d: 		(object) drawing 2D context for canvas
+		half: 		(int) name layot index
+		background:	(image) background image
+		gfxname:	(array) two name layouts
+	*/
 	var context = { params: params, gfxname: [], half: 1 };
 	
 	var canvas = context.canvas = document.getElementById(params.canvasId);
@@ -133,8 +148,6 @@ function DrawNicknameBar(context, gfx)
 	if (gfx.length > 22)
 		params.size = params.size - ((gfx.length - 23) * 1.4);
 	
-	//gfx = FilterGFXTextByHalf(gfx, context.half);
-	
 	DrawGFXText(context, gfx, params);
 }
 
@@ -171,25 +184,15 @@ function DrawGFXText(context, gfx, params)
 	}
 }
 
-function FilterGFXTextByHalf(gfx, half)
-{
-	var newGFX = [];
-	for (var i = 0, a = 0; i < gfx.length; i++)
-	{
-		var displayHalf = gfx[i].displayHalf;
-		if (displayHalf == half)
-			newGFX[a++] = gfx[i];
-	}
-	return newGFX;
-}
-
 function ParseGFX_VQ3Style(context, nickname)
 {
+	// There is one name layot
 	context.gfxname[0] = context.gfxname[1] = ParseGFX(nickname, 0);
 }
 
 function ParseGFX_OSPStyle(context, nickname)
 {
+	// There are two name layots
 	context.gfxname[0] = ParseGFX(nickname, 0);
 	context.gfxname[1] = ParseGFX(nickname, 1);
 }
@@ -213,8 +216,7 @@ function ParseGFX(text, half)
 			symbol: chr,
 			color: colors.front,
 			backgroundColor: colors.back,
-			blink: blinking,
-			displayHalf:0 //TODO: remove it
+			blink: blinking
 		};
 	}
 	
