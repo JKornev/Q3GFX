@@ -226,11 +226,10 @@ function InitSceneElements(context)
 	panel.appendChild(makeColorButton("^4", "blue", "white"));
 	panel.appendChild(makeColorButton("^5", "aqua", "black"));
 	panel.appendChild(makeColorButton("^6", "magenta", "white"));
-	panel.appendChild(makeColorButton("^7", "white", "black"));
-	panel.appendChild(makeColorButton("^8", "#F80", "black"));
-	panel.appendChild(makeColorButton("^9", "#888", "white"));
+	panel.appendChild(makeColorButton("^7", "#BBB", "white"));
+	panel.appendChild(makeColorButton("^8", "#888", "black"));
+	panel.appendChild(makeColorButton("^9", "#77C", "white"));
 	panel.appendChild(makeColorButton("^0", "black", "white"));
-
 	panel.appendChild(makeColorButton("a", "#f00", "white"));
 	panel.appendChild(makeColorButton("b", "#f40", "white"));
 	panel.appendChild(makeColorButton("c", "#f80", "black"));
@@ -257,7 +256,6 @@ function InitSceneElements(context)
 	panel.appendChild(makeColorButton("x", "#f04", "white"));
 	panel.appendChild(makeColorButton("y", "#595959", "white"));
 	panel.appendChild(makeColorButton("z", "#949494", "black"));
-	
 	container.appendChild(panel);
 
 
