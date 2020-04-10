@@ -12,10 +12,10 @@
 <body id="body" style="background-color:#111">
 
 <div class="content" id="content">
-	<div class="nickNameBlock">
+	<!--<div class="nickNameBlock">
 		<input id="nickname" type="text" value="^1A^2n^3a^4r^5k^6i" oninput="onChangeNickname()" onkeypress="if (document.getElementById('nickname').value.length >= 35) return false;" />
 	</div>
-	<canvas id="scene" style="border: 1px solid #333;letter-spacing: 3.4px;" width="800" height="450">Quake 3 GFX</canvas>
+	<canvas id="scene" style="border: 1px solid #333;letter-spacing: 3.4px;" width="800" height="450">Quake 3 GFX</canvas>-->
 </div>
 
 	
@@ -38,9 +38,10 @@ function onKeyPressValidate()
 
 // Max name size is 35 for OSP
 var params = {
+	containerId:"content",
 	canvasId:"scene",
-	backgroundImage: "bg1.jpg",
-	nickname:document.getElementById("nickname").value,
+	backgroundImage: "bg2.jpg",
+	nickname:/*document.getElementById("nickname").value*/"^b^1A^2n^3a^4r^5k^6i",
 	width:800,
 	height:450,
 };

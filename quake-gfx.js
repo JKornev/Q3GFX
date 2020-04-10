@@ -25,8 +25,10 @@ function Q3GFX_Initialize(params)
 	*/
 	var context = { params: params, gfxname: [], half: 1 };
 	
-	var canvas = context.canvas = document.getElementById(params.canvasId);
-	var ctx2d  = context.ctx2d  = canvas.getContext("2d");
+	InitSceneElements(context);
+	
+	var canvas = context.canvas;// = document.getElementById(params.canvasId);
+	var ctx2d  = context.ctx2d;//  = canvas.getContext("2d");
 	
 	// Initially fill canvas
 	ctx2d.fillStyle = "rgb(100, 100, 100)";
@@ -63,6 +65,211 @@ function Q3GFX_ChangeMode(context, mode)
 // ==================
 //  Private stuff
 // ==================
+
+function InitSceneElements(context)
+{
+	var params = context.params;
+
+	var root = document.getElementById(context.params.containerId);
+	root.innerHTML = "";
+
+	var container = document.createElement("div");
+	container.style.width  = "" + (params.width - 10) + "px";
+	container.style.border = "1px solid #333";
+	container.style.borderBottom = "none";
+	container.style.color  = "black";
+	container.style.backgroundColor = "rgba(33, 33, 33, 0.3)";
+	container.style.padding  = "5px";
+	root.appendChild(container);
+
+	// Top panel
+
+	var panel = document.createElement("div");
+	panel.style.height = "22px";
+
+	// Nickname field
+	var nickname = document.createElement("input");
+	nickname.type = "text";
+	nickname.value = "^1A^2n^3a^5r^6k^7i^1A^2n^3a^5r^6k^7"
+	nickname.style.width  = "350px";
+	nickname.style.height = "18px";
+	nickname.style.fontFamily = "Consolas";
+	nickname.style.fontSize = "18px";
+	nickname.style.fontWeight = "bold";
+	nickname.style.backgroundColor = "#999";
+	nickname.style.border = "1px solid #666";
+	panel.appendChild(nickname);
+
+	// Mode menu
+	var mode = document.createElement("select");
+	mode.style.width  = "120px";
+	mode.style.height = "20px";
+	mode.style.fontFamily = "Consolas";
+	mode.style.fontSize = "15px";
+	mode.style.fontWeight = "bold";
+	mode.style.backgroundColor = "#999";
+	mode.style.border = "1px solid #666";
+	mode.style.margin = "0px 0px 0px 10px";
+
+	var option = document.createElement("option");
+	option.innerText = "Default VQ3";
+	mode.appendChild(option);
+	
+	option = document.createElement("option");
+	option.innerText = "OSP Mode";
+	option.selected = true;
+	mode.appendChild(option);
+
+	option = document.createElement("option");
+	option.innerText = "CPMA Mode";
+	mode.appendChild(option);
+
+	panel.appendChild(mode);
+
+	var mode = document.createElement("select");
+	mode.style.width  = "120px";
+	mode.style.height = "20px";
+	mode.style.fontFamily = "Consolas";
+	mode.style.fontSize = "15px";
+	mode.style.fontWeight = "bold";
+	mode.style.backgroundColor = "#999";
+	mode.style.border = "1px solid #666";
+	mode.style.margin = "0px 0px 0px 10px";
+
+	option = document.createElement("option");
+	option.innerText = "Q3DM6";
+	option.selected = true;
+	mode.appendChild(option);
+
+	panel.appendChild(mode);
+
+	// Add top panel
+	container.appendChild(panel);
+
+	// Bottom panel OSP
+
+	panel = document.createElement("div");
+	
+	function makeButtonStyle(text)
+	{
+		var button = document.createElement("input");
+		button.type = "button";
+		button.value = text;
+		button.style.padding  = "2px";
+		button.style.fontFamily = "Consolas";
+		button.style.fontSize = "11px";
+		button.style.fontWeight = "bold";
+		button.style.border = "1px solid #333";
+		button.style.backgroundColor = "#666";
+		button.style.margin = "7px 2px 2px 2px";
+		return button;
+	}
+
+	var blink = makeButtonStyle("Blink");
+	panel.appendChild(blink);
+
+	var half1 = makeButtonStyle("Layot #1");
+	panel.appendChild(half1);
+
+	var half2 = makeButtonStyle("Layot #2");
+	panel.appendChild(half2);
+
+	var rgb = makeButtonStyle("RGB Front");
+	panel.appendChild(rgb);
+
+	var rgb2 = makeButtonStyle("RGB Back");
+	panel.appendChild(rgb2);
+
+	function makeColorButton(text, font, back)
+	{
+		var color = makeButtonStyle(text);
+		color.style.backgroundColor = font;
+		color.style.color = back;
+		return color;
+	}
+
+	panel.appendChild(makeColorButton("^0", "black", "white"));
+	panel.appendChild(makeColorButton("^1", "red", "white"));
+	panel.appendChild(makeColorButton("^2", "green", "white"));
+	panel.appendChild(makeColorButton("^3", "yellow", "black"));
+	panel.appendChild(makeColorButton("^4", "blue", "white"));
+	panel.appendChild(makeColorButton("^5", "aqua", "black"));
+	panel.appendChild(makeColorButton("^6", "magenta", "white"));
+	panel.appendChild(makeColorButton("^7", "white", "black"));
+	panel.appendChild(makeColorButton("^8", "#F80", "black"));
+	panel.appendChild(makeColorButton("^9", "#888", "white"));
+	panel.appendChild(makeColorButton("^0", "black", "white"));
+	
+	container.appendChild(panel);
+
+	// Bottom panel VQ3
+	panel = document.createElement("div");
+	panel.appendChild(makeColorButton("^0", "black", "white"));
+	panel.appendChild(makeColorButton("^1", "red", "white"));
+	panel.appendChild(makeColorButton("^2", "green", "white"));
+	panel.appendChild(makeColorButton("^3", "yellow", "black"));
+	panel.appendChild(makeColorButton("^4", "blue", "white"));
+	panel.appendChild(makeColorButton("^5", "aqua", "black"));
+	panel.appendChild(makeColorButton("^6", "magenta", "white"));
+	panel.appendChild(makeColorButton("^7", "white", "black"));
+	panel.appendChild(makeColorButton("^8", "#F80", "black"));
+	panel.appendChild(makeColorButton("^9", "#888", "white"));
+	panel.appendChild(makeColorButton("^0", "black", "white"));
+	container.appendChild(panel);
+
+	// Bottom panel CMPA
+	panel = document.createElement("div");
+	panel.appendChild(makeColorButton("^0", "black", "white"));
+	panel.appendChild(makeColorButton("^1", "red", "white"));
+	panel.appendChild(makeColorButton("^2", "green", "white"));
+	panel.appendChild(makeColorButton("^3", "yellow", "black"));
+	panel.appendChild(makeColorButton("^4", "blue", "white"));
+	panel.appendChild(makeColorButton("^5", "aqua", "black"));
+	panel.appendChild(makeColorButton("^6", "magenta", "white"));
+	panel.appendChild(makeColorButton("^7", "white", "black"));
+	panel.appendChild(makeColorButton("^8", "#F80", "black"));
+	panel.appendChild(makeColorButton("^9", "#888", "white"));
+	panel.appendChild(makeColorButton("^0", "black", "white"));
+
+	panel.appendChild(makeColorButton("a", "#f00", "white"));
+	panel.appendChild(makeColorButton("b", "#f40", "white"));
+	panel.appendChild(makeColorButton("c", "#f80", "black"));
+	panel.appendChild(makeColorButton("d", "#fc0", "black"));
+	panel.appendChild(makeColorButton("e", "#ff0", "black"));
+	panel.appendChild(makeColorButton("f", "#cf0", "black"));
+	panel.appendChild(makeColorButton("g", "#8f0", "black"));
+	panel.appendChild(makeColorButton("h", "#4f0", "black"));
+	panel.appendChild(makeColorButton("i", "#0f0", "black"));
+	panel.appendChild(makeColorButton("j", "#0f4", "black"));
+	panel.appendChild(makeColorButton("k", "#0f8", "black"));
+	panel.appendChild(makeColorButton("l", "#0fc", "black"));
+	panel.appendChild(makeColorButton("m", "#0ff", "black"));
+	panel.appendChild(makeColorButton("n", "#0cf", "black"));
+	panel.appendChild(makeColorButton("o", "#08f", "white"));
+	panel.appendChild(makeColorButton("p", "#04f", "white"));
+	panel.appendChild(makeColorButton("q", "#00f", "white"));
+	panel.appendChild(makeColorButton("r", "#40f", "white"));
+	panel.appendChild(makeColorButton("s", "#80f", "black"));
+	panel.appendChild(makeColorButton("t", "#c0f", "black"));
+	panel.appendChild(makeColorButton("u", "#f0f", "white"));
+	panel.appendChild(makeColorButton("v", "#f0c", "white"));
+	panel.appendChild(makeColorButton("w", "#f08", "white"));
+	panel.appendChild(makeColorButton("x", "#f04", "white"));
+	panel.appendChild(makeColorButton("y", "#595959", "white"));
+	panel.appendChild(makeColorButton("z", "#949494", "black"));
+	
+	container.appendChild(panel);
+
+
+	var canvas = document.createElement("canvas"); 
+	canvas.width  = params.width;
+	canvas.height = params.height;
+	canvas.style.border = "1px solid #333";
+	root.appendChild(canvas);
+
+	context.canvas = canvas;
+	context.ctx2d  = canvas.getContext("2d");
+}
 
 function TimerDispatcher(context)
 {	
