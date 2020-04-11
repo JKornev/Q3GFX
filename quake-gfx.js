@@ -1,96 +1,173 @@
-
-var s_blinkingTimer;
-var s_blinkingTimerInterval = 50;
-
-// ==================
-//  Public interface
-// ==================
-
+// ====================
+//   Public interface
 
 function Q3GFX_Initialize(params)
 {
 	/*
-	context stucture
+	context stucture tree
 		params: 
 			canvasId:			(string) canvas id
-			backgroundImage:	(string) background image path
+			?backgroundImage:	(string) background image path
 			nickname:			(string) nick name
 			width:				(int) background image width
 			height:				(int) background image height
-		canvas: 	(object) canvas object where we draw a scene
-		ctx2d: 		(object) drawing 2D context for canvas
-		half: 		(int) name layot index
-		background:	(image) background image
-		gfxname:	(array) two name layouts
+			modes:				(array)
+				mode:			(string) mode name (vq3, osp, cpma)
+				maps:			(array) background images
+					image:		(string) background image path
+					name:		(string) map name
+		?canvas: 				(object) canvas object where we draw a scene
+		ctx2d: 					(object) drawing 2D context for canvas
+		half: 					(int) name layot index
+		?background:				(image) background image
+		gfxname:				(array) two name layouts
+		timer 					(object) blinking timer
+		interval:				(int) timer interval
+		counter:				(int) 
+		opaque:					(int)
+		opaqueStep: 			(int)
+		ui:						(dict)
+			container:			(div)
+			panel:				(div)
+			panel2:				(div) 
+			canvas:				(canvas) 
+			nickname:			(input) 
+			mode:				(select) 
+			background:			(select) 
+		modes:					(array)
+		current:				(dict) current mode
+			ui:					(dict) UI elements
+			background:			(array)
+				image:			(image)
+				path:			(string)
+				name:			(string)
+			
 	*/
-	var context = { params: params, gfxname: [], half: 1 };
+	var context = { 
+		params: params,
+		gfxname: [], 
+		half:1
+	};
 	
-	InitSceneElements(context);
-	
-	var canvas = context.canvas;// = document.getElementById(params.canvasId);
-	var ctx2d  = context.ctx2d;//  = canvas.getContext("2d");
-	
-	// Initially fill canvas
-	ctx2d.fillStyle = "rgb(100, 100, 100)";
-	ctx2d.fillRect(0, 0, params.width, params.height);
-	
+	InitializeUI(context, params);
+	LoadModes(context, params, context.ui);
+	BindUIAction(context, context.ui, context.modes);
+
 	ParseGFX_OSPStyle(context, params.nickname);
 	
-	Q3GFX_ChangeBackground(context, params.backgroundImage);
-	
+	//Q3GFX_ChangeBackground(context, params.backgroundImage);
+	AsyncLoadImage(context, params.backgroundImage, OnLoadBackground);
+
 	// Set blinking timer
-	s_blinkingTimer = setTimeout(function() { TimerDispatcher(context); }, s_blinkingTimerInterval);
+	StartScheduler(context);
 	
 	return context;
 }
 
-function Q3GFX_ChangeNickname(context, nickname)
+/*function Q3GFX_ChangeNickname(context, nickname)
 {
 	context.params.nickname = nickname;
 	ParseGFX_OSPStyle(context, context.params.nickname);
 	UpdateScene(context);
+}*/
+
+// ====================
+//   Scheduler 
+
+function StartScheduler(context)
+{
+	context.interval   =  50;
+	context.counter    =  0;
+	context.opaque     =  1.0;
+	context.opaqueStep = -0.05;
+	context.timer = setTimeout(function() { TimerDispatcher(context); }, context.interval);
 }
 
-function Q3GFX_ChangeBackground(context, image)
-{
-	AsyncLoadImage(context, image, OnLoadBackground);
-}
-
-function Q3GFX_ChangeMode(context, mode)
-{
-	//TODO: mode
+function TimerDispatcher(context)
+{	
+	ProceedBlinking(context);
+	ProceedLayots(context);
+	
 	UpdateScene(context);
+	
+	context.timer = setTimeout(function() { TimerDispatcher(context); }, context.interval);
 }
 
-// ==================
-//  Private stuff
-// ==================
-
-function InitSceneElements(context)
+function ProceedLayots(context)
 {
-	var params = context.params;
+	context.counter += context.interval;
+	if (context.counter < 500)
+		return;
+	
+	context.counter = 0;
+	context.half = (context.half != 1 ? 1 : 0);
+}
 
-	var root = document.getElementById(context.params.containerId);
+function ProceedBlinking(context)
+{ // TODO: refactor that shit
+	var opaque = context.opaque;
+	var opaqueStep = context.opaqueStep;
+
+	opaque += opaqueStep;
+	if (opaque < 0.2)
+	{
+		opaqueStep = 0.04;
+		opaque = 0.2;
+	}
+	else if (opaque < 0.4)
+	{
+		if (opaqueStep < 0)
+			opaqueStep = -0.04;
+		else
+			opaqueStep = 0.05;
+	}
+	else if (opaque > 0.95)
+	{
+		opaqueStep = -0.05;
+		opaque = 1.0;
+	}
+
+	context.opaque = opaque;
+	context.opaqueStep = opaqueStep;
+}
+
+// ====================
+//   Panel view
+
+function InitializeUI(context, params)
+{
+	var ui = context.ui = {};
+	var root = document.getElementById(params.containerId);
 	root.innerHTML = "";
 
-	var container = document.createElement("div");
-	container.style.width  = "" + (params.width - 10) + "px";
+	CreateContainer(ui, params, root);
+	CreateTopPanel(ui, params);
+	CreateModePanel(ui, params);
+	CreateCanvas(ui, params);
+	PrepareCanvas(context, ui);
+}
+
+function CreateContainer(ui, params, root)
+{
+	var container = ui.container = document.createElement("div");
+	container.style.width = "" + (params.width) + "px";
 	container.style.border = "1px solid #333";
-	container.style.borderBottom = "none";
-	container.style.color  = "black";
+	container.style.color = "black";
 	container.style.backgroundColor = "rgba(33, 33, 33, 0.3)";
-	container.style.padding  = "5px";
+	container.style.padding = "0px";
+	container.style.margin = "0px";
 	root.appendChild(container);
+}
 
-	// Top panel
-
-	var panel = document.createElement("div");
+function CreateTopPanel(ui, params)
+{
+	var panel = ui.panel = document.createElement("div");
 	panel.style.height = "22px";
+	panel.style.padding  = "5px";
 
-	// Nickname field
-	var nickname = document.createElement("input");
+	var nickname = ui.nickname = document.createElement("input");
 	nickname.type = "text";
-	nickname.value = "^1A^2n^3a^5r^6k^7i^1A^2n^3a^5r^6k^7"
+	nickname.value = params.nickname;
 	nickname.style.width  = "350px";
 	nickname.style.height = "18px";
 	nickname.style.fontFamily = "Consolas";
@@ -100,222 +177,249 @@ function InitSceneElements(context)
 	nickname.style.border = "1px solid #666";
 	panel.appendChild(nickname);
 
-	// Mode menu
-	var mode = document.createElement("select");
-	mode.style.width  = "120px";
-	mode.style.height = "20px";
-	mode.style.fontFamily = "Consolas";
-	mode.style.fontSize = "15px";
-	mode.style.fontWeight = "bold";
-	mode.style.backgroundColor = "#999";
-	mode.style.border = "1px solid #666";
-	mode.style.margin = "0px 0px 0px 10px";
-
-	var option = document.createElement("option");
-	option.innerText = "Default VQ3";
-	mode.appendChild(option);
-	
-	option = document.createElement("option");
-	option.innerText = "OSP Mode";
-	option.selected = true;
-	mode.appendChild(option);
-
-	option = document.createElement("option");
-	option.innerText = "CPMA Mode";
-	mode.appendChild(option);
-
+	var mode = ui.mode = MakeSelect();
 	panel.appendChild(mode);
 
-	var mode = document.createElement("select");
-	mode.style.width  = "120px";
-	mode.style.height = "20px";
-	mode.style.fontFamily = "Consolas";
-	mode.style.fontSize = "15px";
-	mode.style.fontWeight = "bold";
-	mode.style.backgroundColor = "#999";
-	mode.style.border = "1px solid #666";
-	mode.style.margin = "0px 0px 0px 10px";
+	var background = ui.background = MakeSelect();
+	panel.appendChild(background);
 
-	option = document.createElement("option");
-	option.innerText = "Q3DM6";
-	option.selected = true;
-	mode.appendChild(option);
+	ui.container.appendChild(panel);
+}
 
-	panel.appendChild(mode);
+function CreateModePanel(ui, params)
+{
+	var panel = ui.panel2 = document.createElement("div");
+	panel.style.height = "22px";
+	panel.style.padding  = "0px 0px 5px 5px";
+	ui.container.appendChild(panel);
+}
 
-	// Add top panel
-	container.appendChild(panel);
-
-	// Bottom panel OSP
-
-	panel = document.createElement("div");
-	
-	function makeButtonStyle(text)
-	{
-		var button = document.createElement("input");
-		button.type = "button";
-		button.value = text;
-		button.style.padding  = "2px";
-		button.style.fontFamily = "Consolas";
-		button.style.fontSize = "11px";
-		button.style.fontWeight = "bold";
-		button.style.border = "1px solid #333";
-		button.style.backgroundColor = "#666";
-		button.style.margin = "7px 2px 2px 2px";
-		return button;
-	}
-
-	var blink = makeButtonStyle("Blink");
-	panel.appendChild(blink);
-
-	var half1 = makeButtonStyle("Layot #1");
-	panel.appendChild(half1);
-
-	var half2 = makeButtonStyle("Layot #2");
-	panel.appendChild(half2);
-
-	var rgb = makeButtonStyle("RGB Front");
-	panel.appendChild(rgb);
-
-	var rgb2 = makeButtonStyle("RGB Back");
-	panel.appendChild(rgb2);
-
-	function makeColorButton(text, font, back)
-	{
-		var color = makeButtonStyle(text);
-		color.style.backgroundColor = font;
-		color.style.color = back;
-		return color;
-	}
-
-	panel.appendChild(makeColorButton("^0", "black", "white"));
-	panel.appendChild(makeColorButton("^1", "red", "white"));
-	panel.appendChild(makeColorButton("^2", "green", "white"));
-	panel.appendChild(makeColorButton("^3", "yellow", "black"));
-	panel.appendChild(makeColorButton("^4", "blue", "white"));
-	panel.appendChild(makeColorButton("^5", "aqua", "black"));
-	panel.appendChild(makeColorButton("^6", "magenta", "white"));
-	panel.appendChild(makeColorButton("^7", "white", "black"));
-	panel.appendChild(makeColorButton("^8", "#F80", "black"));
-	panel.appendChild(makeColorButton("^9", "#888", "white"));
-	panel.appendChild(makeColorButton("^0", "black", "white"));
-	
-	container.appendChild(panel);
-
-	// Bottom panel VQ3
-	panel = document.createElement("div");
-	panel.appendChild(makeColorButton("^0", "black", "white"));
-	panel.appendChild(makeColorButton("^1", "red", "white"));
-	panel.appendChild(makeColorButton("^2", "green", "white"));
-	panel.appendChild(makeColorButton("^3", "yellow", "black"));
-	panel.appendChild(makeColorButton("^4", "blue", "white"));
-	panel.appendChild(makeColorButton("^5", "aqua", "black"));
-	panel.appendChild(makeColorButton("^6", "magenta", "white"));
-	panel.appendChild(makeColorButton("^7", "white", "black"));
-	panel.appendChild(makeColorButton("^8", "#F80", "black"));
-	panel.appendChild(makeColorButton("^9", "#888", "white"));
-	panel.appendChild(makeColorButton("^0", "black", "white"));
-	container.appendChild(panel);
-
-	// Bottom panel CMPA
-	panel = document.createElement("div");
-	panel.appendChild(makeColorButton("^0", "black", "white"));
-	panel.appendChild(makeColorButton("^1", "red", "white"));
-	panel.appendChild(makeColorButton("^2", "green", "white"));
-	panel.appendChild(makeColorButton("^3", "yellow", "black"));
-	panel.appendChild(makeColorButton("^4", "blue", "white"));
-	panel.appendChild(makeColorButton("^5", "aqua", "black"));
-	panel.appendChild(makeColorButton("^6", "magenta", "white"));
-	panel.appendChild(makeColorButton("^7", "#BBB", "white"));
-	panel.appendChild(makeColorButton("^8", "#888", "black"));
-	panel.appendChild(makeColorButton("^9", "#77C", "white"));
-	panel.appendChild(makeColorButton("^0", "black", "white"));
-	panel.appendChild(makeColorButton("a", "#f00", "white"));
-	panel.appendChild(makeColorButton("b", "#f40", "white"));
-	panel.appendChild(makeColorButton("c", "#f80", "black"));
-	panel.appendChild(makeColorButton("d", "#fc0", "black"));
-	panel.appendChild(makeColorButton("e", "#ff0", "black"));
-	panel.appendChild(makeColorButton("f", "#cf0", "black"));
-	panel.appendChild(makeColorButton("g", "#8f0", "black"));
-	panel.appendChild(makeColorButton("h", "#4f0", "black"));
-	panel.appendChild(makeColorButton("i", "#0f0", "black"));
-	panel.appendChild(makeColorButton("j", "#0f4", "black"));
-	panel.appendChild(makeColorButton("k", "#0f8", "black"));
-	panel.appendChild(makeColorButton("l", "#0fc", "black"));
-	panel.appendChild(makeColorButton("m", "#0ff", "black"));
-	panel.appendChild(makeColorButton("n", "#0cf", "black"));
-	panel.appendChild(makeColorButton("o", "#08f", "white"));
-	panel.appendChild(makeColorButton("p", "#04f", "white"));
-	panel.appendChild(makeColorButton("q", "#00f", "white"));
-	panel.appendChild(makeColorButton("r", "#40f", "white"));
-	panel.appendChild(makeColorButton("s", "#80f", "black"));
-	panel.appendChild(makeColorButton("t", "#c0f", "black"));
-	panel.appendChild(makeColorButton("u", "#f0f", "white"));
-	panel.appendChild(makeColorButton("v", "#f0c", "white"));
-	panel.appendChild(makeColorButton("w", "#f08", "white"));
-	panel.appendChild(makeColorButton("x", "#f04", "white"));
-	panel.appendChild(makeColorButton("y", "#595959", "white"));
-	panel.appendChild(makeColorButton("z", "#949494", "black"));
-	container.appendChild(panel);
-
-
-	var canvas = document.createElement("canvas"); 
+function CreateCanvas(ui, params)
+{
+	var canvas = ui.canvas = document.createElement("canvas"); 
 	canvas.width  = params.width;
 	canvas.height = params.height;
-	canvas.style.border = "1px solid #333";
-	root.appendChild(canvas);
-
-	context.canvas = canvas;
-	context.ctx2d  = canvas.getContext("2d");
+	canvas.style.padding = "0px";
+	canvas.style.margin = "0px 0px -4px 0px";
+	ui.container.appendChild(canvas);
 }
 
-function TimerDispatcher(context)
-{	
-	BlinkingTimer(context);
-	HalfTextTimer(context);
-	
-	UpdateScene(context);
-	
-	s_blinkingTimer = setTimeout(function() { TimerDispatcher(context); }, s_blinkingTimerInterval);
-}
-
-var s_halfDisplayInterval = 0;
-
-function HalfTextTimer(context)
+function PrepareCanvas(context, ui)
 {
-	s_halfDisplayInterval += s_blinkingTimerInterval;
-	if (s_halfDisplayInterval < 500)
-		return;
-	
-	s_halfDisplayInterval = 0;
-	context.half = (context.half != 1 ? 1 : 0);
+	context.canvas = ui.canvas;
+	var ctx2d = context.ctx2d = ui.canvas.getContext("2d");
+	ctx2d.fillStyle = "rgb(100, 100, 100)";
+	ctx2d.fillRect(0, 0, params.width, params.height);
 }
 
-//TODO: no globals should be
-var s_blinkingOpaque = 1.0;
-var s_blinkingIncreament = -0.05;
+function MakeSelect()
+{
+	var select = document.createElement("select");
+	select.style.width  = "130px";
+	select.style.height = "20px";
+	select.style.fontFamily = "Consolas";
+	select.style.fontSize = "15px";
+	select.style.fontWeight = "bold";
+	select.style.backgroundColor = "#999";
+	select.style.border = "1px solid #666";
+	select.style.margin = "0px 0px 0px 10px";
+	return select;
+}
 
-function BlinkingTimer(context)
-{ // TODO: refactor that shit
-	s_blinkingOpaque += s_blinkingIncreament;
-	if (s_blinkingOpaque < 0.2)
+function MakeOption(text)
+{
+	var option = document.createElement("option");
+	option.innerText = text;
+	return option;
+}
+
+function MakeButton(text)
+{
+	var button = document.createElement("input");
+	button.type = "button";
+	button.value = text;
+	button.style.padding = "2px";
+	button.style.fontFamily = "Consolas";
+	button.style.fontSize = "11px";
+	button.style.fontWeight = "bold";
+	button.style.border = "1px solid #333";
+	button.style.backgroundColor = "#666";
+	button.style.margin = "0px 3px 0px 2px";
+	return button;
+}
+
+function MakeColoredButton(text, font, back)
+{
+	var color = MakeButton(text);
+	color.style.backgroundColor = font;
+	color.style.color = back;
+	return color;
+}
+
+// ====================
+//   Modes
+
+function LoadModes(context, params, ui)
+{
+	context.modes = [];
+
+	for (var i = 0, a = 0; i < params.modes.length; i++)
 	{
-		s_blinkingIncreament = 0.04;
-		s_blinkingOpaque = 0.2;
-	}
-	else if (s_blinkingOpaque < 0.4)
-	{
-		if (s_blinkingIncreament < 0)
-			s_blinkingIncreament = -0.04;
+		var settings = params.modes[i];
+		var mode = { ui:{}, background:[] };
+
+		if (settings.mode == "vq3")
+		{
+			CreateVQ3Panel(mode, settings);
+			//ui.mode.appendChild(MakeOption());
+			//context.ui.panel2.appendChild(mode.ui.div);
+		}
+		else if (settings.mode == "osp")
+		{
+			CreateOSPPanel(mode, settings);
+			//if (context.hasOwnProperty("background"))
+			//context.ui.panel2.appendChild(mode.ui.div);
+		}
+		else if (settings.mode == "cpma")
+		{
+			CreateCPMAPanel(mode, settings);
+			//context.ui.panel2.appendChild(mode.ui.div);
+		}
 		else
-			s_blinkingIncreament = 0.05;
-	}
-	else if (s_blinkingOpaque > 0.95)
-	{
-		s_blinkingIncreament = -0.05;
-		s_blinkingOpaque = 1.0;
+		{
+			continue;
+		}
+
+		context.ui.mode.appendChild(MakeOption(mode.name));
+
+		if (settings.hasOwnProperty("default") && settings.default)
+			context.current = mode;
+
+		context.modes[a++] = mode;
 	}
 }
+
+function CreateVQ3Panel(mode, settings)
+{
+	var ui = mode.ui;
+	mode.name = "VQ3 (default)";
+
+	var panel = ui.div = document.createElement("div");
+	panel.style.padding = "0px";
+	panel.style.margin = "0px";
+
+	panel.appendChild(MakeColoredButton("^0", "black", "white"));
+	panel.appendChild(MakeColoredButton("^1", "red", "white"));
+	panel.appendChild(MakeColoredButton("^2", "green", "white"));
+	panel.appendChild(MakeColoredButton("^3", "yellow", "black"));
+	panel.appendChild(MakeColoredButton("^4", "blue", "white"));
+	panel.appendChild(MakeColoredButton("^5", "aqua", "black"));
+	panel.appendChild(MakeColoredButton("^6", "magenta", "white"));
+	panel.appendChild(MakeColoredButton("^7", "white", "black"));
+	panel.appendChild(MakeColoredButton("^8", "#F80", "black"));
+	panel.appendChild(MakeColoredButton("^9", "#888", "white"));
+	panel.appendChild(MakeColoredButton("^0", "black", "white"));
+
+	for (var i = 0; i < settings.maps.length; i++)
+		mode.background[i] = { 
+			path: settings.maps[i].image, 
+			name: settings.maps[i].name 
+		};
+	//TODO: load image
+}
+
+function CreateOSPPanel(mode, settings)
+{
+	var ui = mode.ui;
+	mode.name = "OSP Mode";
+
+	var panel = ui.div = document.createElement("div");
+	panel.style.padding = "0px";
+	panel.style.margin = "0px";
+
+	panel.appendChild(MakeColoredButton("^0", "black", "white"));
+	panel.appendChild(MakeColoredButton("^1", "red", "white"));
+	panel.appendChild(MakeColoredButton("^2", "green", "white"));
+	panel.appendChild(MakeColoredButton("^3", "yellow", "black"));
+	panel.appendChild(MakeColoredButton("^4", "blue", "white"));
+	panel.appendChild(MakeColoredButton("^5", "aqua", "black"));
+	panel.appendChild(MakeColoredButton("^6", "magenta", "white"));
+	panel.appendChild(MakeColoredButton("^7", "white", "black"));
+	panel.appendChild(MakeColoredButton("^8", "#F80", "black"));
+	panel.appendChild(MakeColoredButton("^9", "#888", "white"));
+	panel.appendChild(MakeColoredButton("^0", "black", "white"));
+
+	var blink = MakeButton("Blink");
+	panel.appendChild(blink);
+
+	var half1 = MakeButton("Layot #1");
+	panel.appendChild(half1);
+
+	var half2 = MakeButton("Layot #2");
+	panel.appendChild(half2);
+
+	var rgb = MakeButton("RGB Front");
+	panel.appendChild(rgb);
+
+	var rgb2 = MakeButton("RGB Back");
+	panel.appendChild(rgb2);
+}
+
+function CreateCPMAPanel(mode, settings)
+{
+	var ui = mode.ui;
+	mode.name = "CPMA Mode";
+
+	var panel = ui.div = document.createElement("div");
+	panel.style.padding = "0px";
+	panel.style.margin = "0px";
+
+	panel.appendChild(MakeColoredButton("^0", "black", "white"));
+	panel.appendChild(MakeColoredButton("^1", "red", "white"));
+	panel.appendChild(MakeColoredButton("^2", "green", "white"));
+	panel.appendChild(MakeColoredButton("^3", "yellow", "black"));
+	panel.appendChild(MakeColoredButton("^4", "blue", "white"));
+	panel.appendChild(MakeColoredButton("^5", "aqua", "black"));
+	panel.appendChild(MakeColoredButton("^6", "magenta", "white"));
+	panel.appendChild(MakeColoredButton("^7", "#BBB", "white"));
+	panel.appendChild(MakeColoredButton("^8", "#888", "black"));
+	panel.appendChild(MakeColoredButton("^9", "#77C", "white"));
+	panel.appendChild(MakeColoredButton("^0", "black", "white"));
+	panel.appendChild(MakeColoredButton("a", "#f00", "white"));
+	panel.appendChild(MakeColoredButton("b", "#f40", "white"));
+	panel.appendChild(MakeColoredButton("c", "#f80", "black"));
+	panel.appendChild(MakeColoredButton("d", "#fc0", "black"));
+	panel.appendChild(MakeColoredButton("e", "#ff0", "black"));
+	panel.appendChild(MakeColoredButton("f", "#cf0", "black"));
+	panel.appendChild(MakeColoredButton("g", "#8f0", "black"));
+	panel.appendChild(MakeColoredButton("h", "#4f0", "black"));
+	panel.appendChild(MakeColoredButton("i", "#0f0", "black"));
+	panel.appendChild(MakeColoredButton("j", "#0f4", "black"));
+	panel.appendChild(MakeColoredButton("k", "#0f8", "black"));
+	panel.appendChild(MakeColoredButton("l", "#0fc", "black"));
+	panel.appendChild(MakeColoredButton("m", "#0ff", "black"));
+	panel.appendChild(MakeColoredButton("n", "#0cf", "black"));
+	panel.appendChild(MakeColoredButton("o", "#08f", "white"));
+	panel.appendChild(MakeColoredButton("p", "#04f", "white"));
+	panel.appendChild(MakeColoredButton("q", "#00f", "white"));
+	panel.appendChild(MakeColoredButton("r", "#40f", "white"));
+	panel.appendChild(MakeColoredButton("s", "#80f", "black"));
+	panel.appendChild(MakeColoredButton("t", "#c0f", "black"));
+	panel.appendChild(MakeColoredButton("u", "#f0f", "white"));
+	panel.appendChild(MakeColoredButton("v", "#f0c", "white"));
+	panel.appendChild(MakeColoredButton("w", "#f08", "white"));
+	panel.appendChild(MakeColoredButton("x", "#f04", "white"));
+	panel.appendChild(MakeColoredButton("y", "#595959", "white"));
+	panel.appendChild(MakeColoredButton("z", "#949494", "black"));
+}
+
+function BindUIAction(context, ui, modes)
+{
+
+}
+
+// ====================
+//   OLD STUFF
 
 function OnLoadBackground(result)
 {
@@ -376,7 +480,7 @@ function DrawGFXText(context, gfx, params)
 	{
 		var entry = gfx[i];
 		
-		var opaque = (entry.blink ? s_blinkingOpaque : 1.0);
+		var opaque = (entry.blink ? context.opaque : 1.0);
 		
 		if (params.shadow)
 		{

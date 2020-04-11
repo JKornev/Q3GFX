@@ -11,7 +11,7 @@
 
 <body id="body" style="background-color:#111">
 
-<div class="content" id="content">
+<div id="content">
 	<!--<div class="nickNameBlock">
 		<input id="nickname" type="text" value="^1A^2n^3a^4r^5k^6i" oninput="onChangeNickname()" onkeypress="if (document.getElementById('nickname').value.length >= 35) return false;" />
 	</div>
@@ -20,7 +20,7 @@
 
 	
 <script>
-
+/*
 function onChangeNickname()
 {
 	var nickname = document.getElementById("nickname").value;
@@ -34,7 +34,7 @@ function onKeyPressValidate()
 		return false;
 		
 	return true;
-}
+}*/
 
 // Max name size
 // OSP is 35
@@ -47,6 +47,30 @@ var params = {
 	nickname:/*document.getElementById("nickname").value*/"^b^1A^2n^3a^4r^5k^6i",
 	width:800,
 	height:450,
+	modes:[
+		{
+			mode:"vq3",
+			maps:[
+				{image:"bg1.jpg", name:"Q3DM6"},
+				{image:"bg2.jpg", name:"ZTNTOURNEY4"},
+			],
+		},
+		{
+			mode:"osp",
+			maps:[
+				{image:"bg2.jpg", name:"map3"},
+				{image:"bg3.jpg", name:"map4"},
+			],
+			default:true
+		},
+		{
+			mode:"cpma",
+			maps:[
+				{image:"bg4.jpg", name:"map5"},
+				{image:"bg5.jpg", name:"map6"},
+			],
+		},
+	]
 };
 		
 var q3gfx = Q3GFX_Initialize(params);
