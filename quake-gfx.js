@@ -52,7 +52,6 @@ function Q3GFX_Initialize(params)
 	
 	InitializeUI(context, params);
 	InitializeModes(context, params, context.ui);
-	BindUIWithAction(context, context.ui, context.modes);
 
 	ReparseNickname(context);
 
@@ -416,6 +415,7 @@ function LoadCurrentMode(context)
 		context.ui.background.appendChild(MakeOption(background[i].name));
 
 	SwitchToSelectedBackground(context);
+	ReparseNickname(context);
 }
 
 function CreateVQ3Panel(mode)
@@ -429,9 +429,6 @@ function CreateVQ3Panel(mode)
 	panel.appendChild(MakeColoredButton("^5", "aqua", "black"));
 	panel.appendChild(MakeColoredButton("^6", "magenta", "white"));
 	panel.appendChild(MakeColoredButton("^7", "white", "black"));
-	panel.appendChild(MakeColoredButton("^8", "#F80", "black"));
-	panel.appendChild(MakeColoredButton("^9", "#888", "white"));
-	panel.appendChild(MakeColoredButton("^0", "black", "white"));
 }
 
 function CreateOSPPanel(mode)
@@ -506,14 +503,6 @@ function CreateCPMAPanel(mode)
 	panel.appendChild(MakeColoredButton("x", "#f04", "white"));
 	panel.appendChild(MakeColoredButton("y", "#666", "white"));
 	panel.appendChild(MakeColoredButton("z", "#aaa", "black"));
-}
-
-// ====================
-//   Control handlers
-
-function BindUIWithAction(context, ui, modes)
-{
-
 }
 
 // ====================
@@ -599,23 +588,84 @@ function ReparseNickname(context)
 function ParseGFX_VQ3Style(context, nickname)
 {
 	// There is one name layot
-	context.gfxname[0] = context.gfxname[1] = ParseGFX(nickname, 0);
+	context.gfxname[0] = context.gfxname[1] = ParseGFX_VQ3(nickname);
 }
 
 function ParseGFX_OSPStyle(context, nickname)
 {
 	// There are two name layots
-	context.gfxname[0] = ParseGFX(nickname, 0);
-	context.gfxname[1] = ParseGFX(nickname, 1);
+	context.gfxname[0] = ParseGFX_OSP(nickname, 0);
+	context.gfxname[1] = ParseGFX_OSP(nickname, 1);
 }
 
 function ParseGFX_CPMAStyle(context, nickname)
 {
 	// There is one name layot
-	context.gfxname[0] = context.gfxname[1] = ParseGFX(nickname, 0);
+	context.gfxname[0] = context.gfxname[1] = ParseGFX_CPMA(nickname);
 }
 
-function ParseGFX(text, half)
+function ParseGFX_VQ3(text)
+{
+	var command = false;
+	var overwrite = false;
+	var color = [255, 255, 255];
+	var gfxs = [];
+	
+	function putCharToGFXArray()
+	{
+		gfxs[a++] = {
+			symbol: chr,
+			color: color,
+			backgroundColor: [0, 0, 0],
+			blink: false
+		};
+	}
+	
+	for (var i = 0, a = 0; i < text.length; i++)
+	{
+		var chr = text.charAt(i);
+		
+		if (overwrite)
+		{
+			overwrite = false;
+			gfxs.pop(), a--;
+		}
+		
+		if (command)
+		{	
+			switch (chr)
+			{
+				case '^':
+					putCharToGFXArray();
+					putCharToGFXArray();
+					overwrite = true;
+					continue;
+				default:
+					if (/^\d+$/.test(chr))
+						color = ConvertNumberToVQ3ColorVector(chr, color);
+					else
+						color = ConvertCharToVQ3ColorVector(chr, color);
+			};
+			
+			command = false;
+			continue;
+		}
+		else
+		{
+			if (chr =='^')
+			{
+				command = true;
+				continue;
+			}
+		}
+		
+		putCharToGFXArray();
+	}
+	
+	return gfxs;
+}
+
+function ParseGFX_OSP(text, half)
 {
 	var command = false;
 	var blinking = false;
@@ -704,7 +754,7 @@ function ParseGFX(text, half)
 				default:
 					if (/^\d+$/.test(chr))
 					{	
-						colors.front = ConvertCharToColorVector(chr, colors.front);
+						colors.front = ConvertNumberToOSPColorVector(chr, colors.front);
 						colors.custom = false;
 					}
 			};
@@ -730,7 +780,121 @@ function ParseGFX(text, half)
 	return gfxs;
 }
 
-function ConvertCharToColorVector(chr, dflt)
+function ParseGFX_CPMA(text)
+{
+	var command = false;
+	var overwrite = false;
+	var color = [255, 255, 255];
+	var gfxs = [];
+	
+	function putCharToGFXArray()
+	{
+		gfxs[a++] = {
+			symbol: chr,
+			color: color,
+			backgroundColor: [0, 0, 0],
+			blink: false
+		};
+	}
+	
+	for (var i = 0, a = 0; i < text.length; i++)
+	{
+		var chr = text.charAt(i);
+		
+		if (overwrite)
+		{
+			overwrite = false;
+			gfxs.pop(), a--;
+		}
+		
+		if (command)
+		{	
+			switch (chr)
+			{
+				case '^':
+					putCharToGFXArray();
+					putCharToGFXArray();
+					overwrite = true;
+					continue;
+				default:
+					if (/^[a-zA-Z\d]$/.test(chr))
+						color = ConvertCharToCPMAColorVector(chr, color);
+			};
+			
+			command = false;
+			continue;
+		}
+		else
+		{
+			if (chr =='^')
+			{
+				command = true;
+				continue;
+			}
+		}
+		
+		putCharToGFXArray();
+	}
+	
+	return gfxs;
+}
+
+function ConvertNumberToVQ3ColorVector(chr, dflt)
+{
+	var color = dflt;
+	
+	switch (chr)
+	{
+		case '0':
+		case '1':
+		case '9':
+			return [255,   0,   0];
+		case '2':
+			return [  0, 255,   0];
+		case '3':
+			return [255, 255,   0];
+		case '4':
+			return [  0,   0, 255];
+		case '5':
+			return [  0, 255, 255];
+		case '6':
+			return [255,   0, 255];
+		case '7':
+		case '8':
+			return [255, 255, 255];
+		default:
+			break;
+	}
+	
+	return color;
+}
+
+function ConvertCharToVQ3ColorVector(chr, dflt)
+{
+	//TODO: strange case ^zz^yy^xx and ^xx^yy^zz
+	var color = dflt;
+	var ascii = chr.charCodeAt(0);
+	var number = 0;
+
+	if (/^[A-Z]$/.test(chr))
+	{
+		number = ascii - 'A'.charCodeAt(0);
+	}
+	else if (/^[a-z]$/.test(chr))
+	{
+		number = ascii - 'a'.charCodeAt(0);
+	}
+	else
+	{
+		return dflt;
+	}
+
+	number = (number % 8) + 1;
+
+	return ConvertNumberToVQ3ColorVector("" + number, dflt)
+}
+
+function ConvertNumberToOSPColorVector(chr, dflt)
 {
 	var color = dflt;
 	
@@ -756,6 +920,92 @@ function ConvertCharToColorVector(chr, dflt)
 			return [255, 128,   0];
 		case '9':
 			return [128, 128, 128];
+		default:
+			break;
+	}
+	
+	return color;
+}
+
+function ConvertCharToCPMAColorVector(chr, dflt)
+{
+	var color = dflt;
+	/*	panel.appendChild(MakeColoredButton("^0", "black", "white"));
+	panel.appendChild(MakeColoredButton("^1", "red", "white"));
+	panel.appendChild(MakeColoredButton("^2", "green", "white"));
+	panel.appendChild(MakeColoredButton("^3", "yellow", "black"));
+	panel.appendChild(MakeColoredButton("^4", "blue", "white"));
+	panel.appendChild(MakeColoredButton("^5", "aqua", "black"));
+	panel.appendChild(MakeColoredButton("^6", "magenta", "white"));
+	panel.appendChild(MakeColoredButton("^7", "#BBB", "white"));
+	panel.appendChild(MakeColoredButton("^8", "#888", "black"));
+	panel.appendChild(MakeColoredButton("^9", "#77C", "white"));
+	panel.appendChild(MakeColoredButton("^0", "black", "white"));
+	panel.appendChild(MakeColoredButton("a", "#f00", "white"));
+	panel.appendChild(MakeColoredButton("b", "#f40", "white"));
+	panel.appendChild(MakeColoredButton("c", "#f80", "black"));
+	panel.appendChild(MakeColoredButton("d", "#fc0", "black"));
+	panel.appendChild(MakeColoredButton("e", "#ff0", "black"));
+	panel.appendChild(MakeColoredButton("f", "#cf0", "black"));
+	panel.appendChild(MakeColoredButton("g", "#8f0", "black"));
+	panel.appendChild(MakeColoredButton("h", "#4f0", "black"));
+	panel.appendChild(MakeColoredButton("i", "#0f0", "black"));
+	panel.appendChild(MakeColoredButton("j", "#0f4", "black"));
+	panel.appendChild(MakeColoredButton("k", "#0f8", "black"));
+	panel.appendChild(MakeColoredButton("l", "#0fc", "black"));
+	panel.appendChild(MakeColoredButton("m", "#0ff", "black"));
+	panel.appendChild(MakeColoredButton("n", "#0cf", "black"));
+	panel.appendChild(MakeColoredButton("o", "#08f", "white"));
+	panel.appendChild(MakeColoredButton("p", "#04f", "white"));
+	panel.appendChild(MakeColoredButton("q", "#00f", "white"));
+	panel.appendChild(MakeColoredButton("r", "#40f", "white"));
+	panel.appendChild(MakeColoredButton("s", "#80f", "black"));
+	panel.appendChild(MakeColoredButton("t", "#c0f", "black"));
+	panel.appendChild(MakeColoredButton("u", "#f0f", "white"));
+	panel.appendChild(MakeColoredButton("v", "#f0c", "white"));
+	panel.appendChild(MakeColoredButton("w", "#f08", "white"));
+	panel.appendChild(MakeColoredButton("x", "#f04", "white"));
+	panel.appendChild(MakeColoredButton("y", "#666", "white"));
+	panel.appendChild(MakeColoredButton("z", "#aaa", "black")); */
+	switch (chr)
+	{
+		case '0': return [  0,   0,   0];
+		case '1': return [255,   0,   0];
+		case '2': return [  0, 255,   0];
+		case '3': return [255, 255,   0];
+		case '4': return [  0,   0, 255];
+		case '5': return [  0, 255, 255];
+		case '6': return [255,   0, 255];
+		case '7': return [0xB0, 0xB0, 0xB0];
+		case '8': return [128, 128, 128];
+		case '9': return [112, 112, 192];
+
+		case 'a': return [255,   0,   0];
+		case 'b': return [255,  64,   0];
+		case 'c': return [255, 128,   0];
+		case 'd': return [255, 192,   0];
+		case 'e': return [255, 255,   0];
+		case 'f': return [192, 255,   0];
+		case 'g': return [128, 255,   0];
+		case 'h': return [ 64, 255,   0];
+		case 'i': return [  0, 255,   0];
+		case 'j': return [  0, 255,  64];
+		case 'k': return [  0, 255, 128];
+		case 'l': return [  0, 255, 192];
+		case 'm': return [  0, 255, 255];
+		case 'n': return [  0, 192, 255];
+		case 'o': return [  0, 128, 255];
+		case 'p': return [  0,  64, 255];
+		case 'q': return [  0,   0, 255];
+		case 'r': return [ 64,   0, 255];
+		case 's': return [128,   0, 255];
+		case 't': return [192,   0, 255];
+		case 'u': return [255,   0, 255];
+		case 'v': return [255,   0, 192];
+		case 'w': return [255,   0, 128];
+		case 'x': return [255,   0,  64];
+		case 'y': return [196, 196, 196];
+		case 'z': return [160, 160, 160];
 		default:
 			break;
 	}
