@@ -46,30 +46,21 @@ function Q3GFX_Initialize(params)
 	var context = { 
 		params: params,
 		gfxname: [], 
-		half:1
+		half:1,
+		nickname: params.nickname
 	};
 	
 	InitializeUI(context, params);
-	LoadModes(context, params, context.ui);
-	BindUIAction(context, context.ui, context.modes);
+	InitializeModes(context, params, context.ui);
+	BindUIWithAction(context, context.ui, context.modes);
 
-	ParseGFX_OSPStyle(context, params.nickname);
-	
-	//Q3GFX_ChangeBackground(context, params.backgroundImage);
-	AsyncLoadImage(context, params.backgroundImage, OnLoadBackground);
+	ReparseNickname(context);
 
 	// Set blinking timer
 	StartScheduler(context);
 	
 	return context;
 }
-
-/*function Q3GFX_ChangeNickname(context, nickname)
-{
-	context.params.nickname = nickname;
-	ParseGFX_OSPStyle(context, context.params.nickname);
-	UpdateScene(context);
-}*/
 
 // ====================
 //   Scheduler 
@@ -104,7 +95,7 @@ function ProceedLayots(context)
 }
 
 function ProceedBlinking(context)
-{ // TODO: refactor that shit
+{ // TODO: refactor this shit
 	var opaque = context.opaque;
 	var opaqueStep = context.opaqueStep;
 
@@ -145,6 +136,10 @@ function InitializeUI(context, params)
 	CreateModePanel(ui, params);
 	CreateCanvas(ui, params);
 	PrepareCanvas(context, ui);
+
+	ui.nickname.oninput = function() { OnChangeNickname(context); };
+	ui.mode.onchange = function() { OnChangeMode(context); };
+	ui.background.onchange = function() { OnChangeBackground(context); };
 }
 
 function CreateContainer(ui, params, root)
@@ -256,40 +251,138 @@ function MakeColoredButton(text, font, back)
 	return color;
 }
 
+function MakePanel2Div()
+{
+	var div = document.createElement("div");
+	div.style.padding = "0px";
+	div.style.margin = "0px";
+	div.style.display = 'none';
+	return div;
+}
+
+// ====================
+//   Controls
+
+function OnChangeNickname(context)
+{
+	context.nickname = context.ui.nickname.value;
+	ReparseNickname(context);
+	UpdateScene(context);
+}
+
+function OnChangeMode(context)
+{
+	SwitchToSelectedMode(context);
+	LoadCurrentMode(context);
+}
+
+function OnChangeBackground(context)
+{
+	SwitchToSelectedBackground(context);
+	UpdateScene(context);
+}
+
+function SwitchToSelectedMode(context)
+{
+	var selected = context.ui.mode.value;
+	var modes = context.modes;
+	
+	for (var i = 0; i < modes.length; i++)
+	{
+		if (modes[i].name == selected)
+		{
+			if (modes[i] == context.current)
+				return;
+
+			context.current.ui.div.style.display = 'none';
+			context.current = modes[i];
+			break;
+		}
+	}
+}
+
+function SwitchToSelectedBackground(context)
+{
+	var selected = context.ui.background.value;
+	var background = context.current.background;
+
+	for (var i = 0; i < background.length; i++)
+	{
+		if (background[i].name == selected)
+		{
+			if (background[i].hasOwnProperty("image"))
+			{
+				context.background = background[i].image;
+				return;
+			}
+		}
+	}
+}
+
+function EnsureBackgroundImageLoaded(context)
+{
+	if (context.hasOwnProperty("background"))
+		return;
+	
+	SwitchToSelectedBackground(context);
+}
+
 // ====================
 //   Modes
 
-function LoadModes(context, params, ui)
+function InitializeModes(context, params, ui)
 {
 	context.modes = [];
 
 	for (var i = 0, a = 0; i < params.modes.length; i++)
 	{
 		var settings = params.modes[i];
-		var mode = { ui:{}, background:[] };
+		var mode = { ui:{div:MakePanel2Div()}, background:[], index:a };
 
 		if (settings.mode == "vq3")
 		{
-			CreateVQ3Panel(mode, settings);
-			//ui.mode.appendChild(MakeOption());
-			//context.ui.panel2.appendChild(mode.ui.div);
+			mode.name = "VQ3 (default)";
+			mode.parser = ParseGFX_VQ3Style;
+			CreateVQ3Panel(mode);
 		}
 		else if (settings.mode == "osp")
 		{
-			CreateOSPPanel(mode, settings);
-			//if (context.hasOwnProperty("background"))
-			//context.ui.panel2.appendChild(mode.ui.div);
+			mode.name = "OSP Mode";
+			mode.parser = ParseGFX_OSPStyle;
+			CreateOSPPanel(mode);
 		}
 		else if (settings.mode == "cpma")
 		{
-			CreateCPMAPanel(mode, settings);
-			//context.ui.panel2.appendChild(mode.ui.div);
+			mode.name = "CPMA Mode";
+			mode.parser = ParseGFX_CPMAStyle;
+			CreateCPMAPanel(mode);
 		}
 		else
 		{
 			continue;
 		}
+		
+		context.ui.panel2.appendChild(mode.ui.div);
 
+		for (var b = 0; b < settings.maps.length; b++)
+		{
+			mode.background[b] = { 
+				path: settings.maps[b].image, 
+				name: settings.maps[b].name 
+			};
+
+			function OnLoadImageForMode(result)
+			{
+				if (result.error != 'success')
+					return;
+				
+				result.context.image = result.image;
+				EnsureBackgroundImageLoaded(context);
+			}
+
+			AsyncLoadImage(mode.background[b], settings.maps[b].image, OnLoadImageForMode);
+		}
+		
 		context.ui.mode.appendChild(MakeOption(mode.name));
 
 		if (settings.hasOwnProperty("default") && settings.default)
@@ -297,17 +390,37 @@ function LoadModes(context, params, ui)
 
 		context.modes[a++] = mode;
 	}
+
+	if (!context.hasOwnProperty("current"))
+	{
+		if (!context.modes.length)
+			alert("Error, modules aren't configurated");
+		context.current = context.modes[0];
+	}
+
+	context.ui.mode.selectedIndex = context.current.index;
+	LoadCurrentMode(context);
 }
 
-function CreateVQ3Panel(mode, settings)
+function LoadCurrentMode(context)
 {
-	var ui = mode.ui;
-	mode.name = "VQ3 (default)";
+	var mode = context.current;
+	var background = mode.background;
 
-	var panel = ui.div = document.createElement("div");
-	panel.style.padding = "0px";
-	panel.style.margin = "0px";
+	// Display current mode bar
+	mode.ui.div.style.display = 'block';
 
+	// Load new background list
+	context.ui.background.innerHTML = "";
+	for (var i = 0; i < background.length; i++)
+		context.ui.background.appendChild(MakeOption(background[i].name));
+
+	SwitchToSelectedBackground(context);
+}
+
+function CreateVQ3Panel(mode)
+{
+	var panel = mode.ui.div;
 	panel.appendChild(MakeColoredButton("^0", "black", "white"));
 	panel.appendChild(MakeColoredButton("^1", "red", "white"));
 	panel.appendChild(MakeColoredButton("^2", "green", "white"));
@@ -319,23 +432,11 @@ function CreateVQ3Panel(mode, settings)
 	panel.appendChild(MakeColoredButton("^8", "#F80", "black"));
 	panel.appendChild(MakeColoredButton("^9", "#888", "white"));
 	panel.appendChild(MakeColoredButton("^0", "black", "white"));
-
-	for (var i = 0; i < settings.maps.length; i++)
-		mode.background[i] = { 
-			path: settings.maps[i].image, 
-			name: settings.maps[i].name 
-		};
-	//TODO: load image
 }
 
-function CreateOSPPanel(mode, settings)
+function CreateOSPPanel(mode)
 {
-	var ui = mode.ui;
-	mode.name = "OSP Mode";
-
-	var panel = ui.div = document.createElement("div");
-	panel.style.padding = "0px";
-	panel.style.margin = "0px";
+	var panel = mode.ui.div;
 
 	panel.appendChild(MakeColoredButton("^0", "black", "white"));
 	panel.appendChild(MakeColoredButton("^1", "red", "white"));
@@ -365,15 +466,9 @@ function CreateOSPPanel(mode, settings)
 	panel.appendChild(rgb2);
 }
 
-function CreateCPMAPanel(mode, settings)
+function CreateCPMAPanel(mode)
 {
-	var ui = mode.ui;
-	mode.name = "CPMA Mode";
-
-	var panel = ui.div = document.createElement("div");
-	panel.style.padding = "0px";
-	panel.style.margin = "0px";
-
+	var panel = mode.ui.div;
 	panel.appendChild(MakeColoredButton("^0", "black", "white"));
 	panel.appendChild(MakeColoredButton("^1", "red", "white"));
 	panel.appendChild(MakeColoredButton("^2", "green", "white"));
@@ -409,11 +504,14 @@ function CreateCPMAPanel(mode, settings)
 	panel.appendChild(MakeColoredButton("v", "#f0c", "white"));
 	panel.appendChild(MakeColoredButton("w", "#f08", "white"));
 	panel.appendChild(MakeColoredButton("x", "#f04", "white"));
-	panel.appendChild(MakeColoredButton("y", "#595959", "white"));
-	panel.appendChild(MakeColoredButton("z", "#949494", "black"));
+	panel.appendChild(MakeColoredButton("y", "#666", "white"));
+	panel.appendChild(MakeColoredButton("z", "#aaa", "black"));
 }
 
-function BindUIAction(context, ui, modes)
+// ====================
+//   Control handlers
+
+function BindUIWithAction(context, ui, modes)
 {
 
 }
@@ -493,6 +591,11 @@ function DrawGFXText(context, gfx, params)
 	}
 }
 
+function ReparseNickname(context)
+{
+	context.current.parser(context, context.nickname);
+}
+
 function ParseGFX_VQ3Style(context, nickname)
 {
 	// There is one name layot
@@ -504,6 +607,12 @@ function ParseGFX_OSPStyle(context, nickname)
 	// There are two name layots
 	context.gfxname[0] = ParseGFX(nickname, 0);
 	context.gfxname[1] = ParseGFX(nickname, 1);
+}
+
+function ParseGFX_CPMAStyle(context, nickname)
+{
+	// There is one name layot
+	context.gfxname[0] = context.gfxname[1] = ParseGFX(nickname, 0);
 }
 
 function ParseGFX(text, half)
