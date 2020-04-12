@@ -137,6 +137,7 @@ function InitializeUI(context, params)
 	PrepareCanvas(context, ui);
 
 	ui.nickname.oninput = function() { OnChangeNickname(context); };
+	ui.nickname.onkeypress=function() { return context.current.validate(context); }
 	ui.mode.onchange = function() { OnChangeMode(context); };
 	ui.background.onchange = function() { OnChangeBackground(context); };
 }
@@ -326,11 +327,41 @@ function EnsureBackgroundImageLoaded(context)
 	SwitchToSelectedBackground(context);
 }
 
+function IsValidVQ3Name(context)
+{
+	var nickname = context.ui.nickname.value;
+	if (nickname.length >= 35)
+		return false;
+
+	return /^[a-zA-Z\d\^\@\#\$\&\*\(\)\-\=\_\+\|\/\[\]\.\,\'\<\>\{\}\ ]*$/g.test(nickname);
+}
+
+function IsValidCPMAName(context)
+{
+	var nickname = context.ui.nickname.value;
+	
+	var length = 0;
+	var skip = false;
+
+	for (var i = 0; i < nickname.length; i++)
+	{
+		if (nickname[i] == '^')
+			skip = true;
+		else if (skip)
+			skip = false;
+		else
+			length++;
+	}
+
+	return (length < 16);
+}
+
 // ====================
 //   Modes
 
 function InitializeModes(context, params, ui)
 {
+	var index = 0;
 	context.modes = [];
 
 	for (var i = 0, a = 0; i < params.modes.length; i++)
@@ -342,18 +373,21 @@ function InitializeModes(context, params, ui)
 		{
 			mode.name = "VQ3 (default)";
 			mode.parser = ParseGFX_VQ3Style;
+			mode.validate = IsValidVQ3Name;
 			CreateVQ3Panel(mode);
 		}
 		else if (settings.mode == "osp")
 		{
 			mode.name = "OSP Mode";
 			mode.parser = ParseGFX_OSPStyle;
+			mode.validate = IsValidVQ3Name;
 			CreateOSPPanel(mode);
 		}
 		else if (settings.mode == "cpma")
 		{
 			mode.name = "CPMA Mode";
 			mode.parser = ParseGFX_CPMAStyle;
+			mode.validate = IsValidCPMAName;
 			CreateCPMAPanel(mode);
 		}
 		else
@@ -385,7 +419,10 @@ function InitializeModes(context, params, ui)
 		context.ui.mode.appendChild(MakeOption(mode.name));
 
 		if (settings.hasOwnProperty("default") && settings.default)
+		{
+			index = a;
 			context.current = mode;
+		}
 
 		context.modes[a++] = mode;
 	}
@@ -397,7 +434,7 @@ function InitializeModes(context, params, ui)
 		context.current = context.modes[0];
 	}
 
-	context.ui.mode.selectedIndex = context.current.index;
+	context.ui.mode.selectedIndex = index;
 	LoadCurrentMode(context);
 }
 
@@ -506,17 +543,7 @@ function CreateCPMAPanel(mode)
 }
 
 // ====================
-//   OLD STUFF
-
-function OnLoadBackground(result)
-{
-	if (result.error != 'success')
-		return;
-	
-	result.context.background = result.image;
-	
-	UpdateScene(result.context);
-}
+//   GFX
 
 function UpdateScene(context)
 {
@@ -930,43 +957,8 @@ function ConvertNumberToOSPColorVector(chr, dflt)
 function ConvertCharToCPMAColorVector(chr, dflt)
 {
 	var color = dflt;
-	/*	panel.appendChild(MakeColoredButton("^0", "black", "white"));
-	panel.appendChild(MakeColoredButton("^1", "red", "white"));
-	panel.appendChild(MakeColoredButton("^2", "green", "white"));
-	panel.appendChild(MakeColoredButton("^3", "yellow", "black"));
-	panel.appendChild(MakeColoredButton("^4", "blue", "white"));
-	panel.appendChild(MakeColoredButton("^5", "aqua", "black"));
-	panel.appendChild(MakeColoredButton("^6", "magenta", "white"));
-	panel.appendChild(MakeColoredButton("^7", "#BBB", "white"));
-	panel.appendChild(MakeColoredButton("^8", "#888", "black"));
-	panel.appendChild(MakeColoredButton("^9", "#77C", "white"));
-	panel.appendChild(MakeColoredButton("^0", "black", "white"));
-	panel.appendChild(MakeColoredButton("a", "#f00", "white"));
-	panel.appendChild(MakeColoredButton("b", "#f40", "white"));
-	panel.appendChild(MakeColoredButton("c", "#f80", "black"));
-	panel.appendChild(MakeColoredButton("d", "#fc0", "black"));
-	panel.appendChild(MakeColoredButton("e", "#ff0", "black"));
-	panel.appendChild(MakeColoredButton("f", "#cf0", "black"));
-	panel.appendChild(MakeColoredButton("g", "#8f0", "black"));
-	panel.appendChild(MakeColoredButton("h", "#4f0", "black"));
-	panel.appendChild(MakeColoredButton("i", "#0f0", "black"));
-	panel.appendChild(MakeColoredButton("j", "#0f4", "black"));
-	panel.appendChild(MakeColoredButton("k", "#0f8", "black"));
-	panel.appendChild(MakeColoredButton("l", "#0fc", "black"));
-	panel.appendChild(MakeColoredButton("m", "#0ff", "black"));
-	panel.appendChild(MakeColoredButton("n", "#0cf", "black"));
-	panel.appendChild(MakeColoredButton("o", "#08f", "white"));
-	panel.appendChild(MakeColoredButton("p", "#04f", "white"));
-	panel.appendChild(MakeColoredButton("q", "#00f", "white"));
-	panel.appendChild(MakeColoredButton("r", "#40f", "white"));
-	panel.appendChild(MakeColoredButton("s", "#80f", "black"));
-	panel.appendChild(MakeColoredButton("t", "#c0f", "black"));
-	panel.appendChild(MakeColoredButton("u", "#f0f", "white"));
-	panel.appendChild(MakeColoredButton("v", "#f0c", "white"));
-	panel.appendChild(MakeColoredButton("w", "#f08", "white"));
-	panel.appendChild(MakeColoredButton("x", "#f04", "white"));
-	panel.appendChild(MakeColoredButton("y", "#666", "white"));
-	panel.appendChild(MakeColoredButton("z", "#aaa", "black")); */
+	chr = chr.toLowerCase();
+
 	switch (chr)
 	{
 		case '0': return [  0,   0,   0];
@@ -979,7 +971,6 @@ function ConvertCharToCPMAColorVector(chr, dflt)
 		case '7': return [0xB0, 0xB0, 0xB0];
 		case '8': return [128, 128, 128];
 		case '9': return [112, 112, 192];
-
 		case 'a': return [255,   0,   0];
 		case 'b': return [255,  64,   0];
 		case 'c': return [255, 128,   0];
@@ -1035,6 +1026,9 @@ function ConvertVectorToRGBA(vector, alpha)
 {
 	return "rgba(" + vector[0] + "," + vector[1] + "," + vector[2] + "," + alpha + ")";
 }
+
+// ====================
+//   Misc
 
 function AsyncLoadImage(context, image, callback) 
 {
