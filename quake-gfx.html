@@ -11,30 +11,9 @@
 
 <body id="body" style="background-color:#111">
 
-<div id="content">
-	<!--<div class="nickNameBlock">
-		<input id="nickname" type="text" value="^1A^2n^3a^4r^5k^6i" oninput="onChangeNickname()" onkeypress="if (document.getElementById('nickname').value.length >= 35) return false;" />
-	</div>
-	<canvas id="scene" style="border: 1px solid #333;letter-spacing: 3.4px;" width="800" height="450">Quake 3 GFX</canvas>-->
-</div>
+<div id="content"></div>
 
-	
 <script>
-/*
-function onChangeNickname()
-{
-	var nickname = document.getElementById("nickname").value;
-	Q3GFX_ChangeNickname(q3gfx, nickname);
-}
-
-function onKeyPressValidate()
-{
-	var nickname = document.getElementById("nickname").value;
-	if (nickname.length > 35)
-		return false;
-		
-	return true;
-}*/
 
 // Max name size
 // OSP is 35
@@ -58,8 +37,10 @@ var params = {
 		{
 			mode:"osp",
 			maps:[
-				{image:"bg3.jpg", name:"OXODM24"},
+				{image:"bg3.jpg", name:"OXODM54"},
 				{image:"bg4.jpg", name:"Q3DM6"},
+				{image:"ts_ca1.jpg", name:"TS_CA1"},
+				{image:"mistery.jpg", name:"MISTERY"},
 			],
 			default:true
 		},

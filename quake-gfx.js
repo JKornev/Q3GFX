@@ -1,6 +1,13 @@
 // ====================
 //   Public interface
 
+/* TODO: 
+ - Edge bug, after a page reload it doesn't clear a previous nick
+ - Bind action with buttons
+ - Make a name limit builtin in a GTX parser
+ - Make an output for /name command
+*/
+
 function Q3GFX_Initialize(params)
 {
 	/*
@@ -137,7 +144,7 @@ function InitializeUI(context, params)
 	PrepareCanvas(context, ui);
 
 	ui.nickname.oninput = function() { OnChangeNickname(context); };
-	ui.nickname.onkeypress=function() { return context.current.validate(context); }
+	ui.nickname.onkeypress = function() { return context.current.validate(context.nickname); }
 	ui.mode.onchange = function() { OnChangeMode(context); };
 	ui.background.onchange = function() { OnChangeBackground(context); };
 }
@@ -260,12 +267,17 @@ function MakePanel2Div()
 	return div;
 }
 
+function MarkNickname(context, valid)
+{
+	var textbox = context.ui.nickname;
+	textbox.style.backgroundColor = (valid ? "#999" : "#c00");
+}
+
 // ====================
 //   Controls
 
 function OnChangeNickname(context)
 {
-	context.nickname = context.ui.nickname.value;
 	ReparseNickname(context);
 	UpdateScene(context);
 }
@@ -327,33 +339,24 @@ function EnsureBackgroundImageLoaded(context)
 	SwitchToSelectedBackground(context);
 }
 
-function IsValidVQ3Name(context)
+function IsValidVQ3Name(nickname)
 {
-	var nickname = context.ui.nickname.value;
-	if (nickname.length >= 35)
-		return false;
-
 	return /^[a-zA-Z\d\^\@\#\$\&\*\(\)\-\=\_\+\|\/\[\]\.\,\'\<\>\{\}\ ]*$/g.test(nickname);
 }
 
-function IsValidCPMAName(context)
+function IsValidCPMAName(nickname)
+{
+	// We keep IsValid..() functions because a name validation possible can be different for different modes
+	// so we have to check it and then implement this function or remove IsValid..() stuff
+	return IsValidVQ3Name(nickname);
+}
+
+function LoadNickname(context)
 {
 	var nickname = context.ui.nickname.value;
-	
-	var length = 0;
-	var skip = false;
-
-	for (var i = 0; i < nickname.length; i++)
-	{
-		if (nickname[i] == '^')
-			skip = true;
-		else if (skip)
-			skip = false;
-		else
-			length++;
-	}
-
-	return (length < 16);
+	var shrinked = context.current.shrink(nickname);
+	MarkNickname(context, (shrinked == nickname));
+	context.nickname = shrinked;
 }
 
 // ====================
@@ -374,6 +377,7 @@ function InitializeModes(context, params, ui)
 			mode.name = "VQ3 (default)";
 			mode.parser = ParseGFX_VQ3Style;
 			mode.validate = IsValidVQ3Name;
+			mode.shrink = ShrinkVQ3Name;
 			CreateVQ3Panel(mode);
 		}
 		else if (settings.mode == "osp")
@@ -381,6 +385,7 @@ function InitializeModes(context, params, ui)
 			mode.name = "OSP Mode";
 			mode.parser = ParseGFX_OSPStyle;
 			mode.validate = IsValidVQ3Name;
+			mode.shrink = ShrinkVQ3Name;
 			CreateOSPPanel(mode);
 		}
 		else if (settings.mode == "cpma")
@@ -388,6 +393,7 @@ function InitializeModes(context, params, ui)
 			mode.name = "CPMA Mode";
 			mode.parser = ParseGFX_CPMAStyle;
 			mode.validate = IsValidCPMAName;
+			mode.shrink = ShrinkCPMAName;
 			CreateCPMAPanel(mode);
 		}
 		else
@@ -609,7 +615,41 @@ function DrawGFXText(context, gfx, params)
 
 function ReparseNickname(context)
 {
+	LoadNickname(context);
 	context.current.parser(context, context.nickname);
+}
+
+function ShrinkVQ3Name(nickname)
+{
+	if (nickname.length > 35)
+		nickname = nickname.substring(0, 35);
+
+	return nickname;
+}
+
+function ShrinkCPMAName(nickname)
+{
+	var length = 0;
+	var skip = false;
+	var newname = "";
+
+	for (var i = 0; i < nickname.length; i++)
+	{
+		// What about case ^^^^^
+		if (nickname[i] == '^')
+			skip = true;
+		else if (skip)
+			skip = false;
+		else
+			length++;
+		
+		newname += nickname[i];
+
+		if (length >= 16)
+			break;
+	}
+
+	return newname;
 }
 
 function ParseGFX_VQ3Style(context, nickname)
