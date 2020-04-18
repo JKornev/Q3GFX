@@ -4,7 +4,7 @@
 /* TODO: 
  - Edge bug, after a page reload it doesn't clear a previous nick
  - Bind action with buttons
- - Make a name limit builtin in a GTX parser
+ + Make a name limit builtin in a GTX parser
  - Make an output for /name command
 */
 
@@ -25,7 +25,7 @@ function Q3GFX_Initialize(params)
 					name:		(string) map name
 		?canvas: 				(object) canvas object where we draw a scene
 		ctx2d: 					(object) drawing 2D context for canvas
-		half: 					(int) name layot index
+		half: 					(int) name layer index
 		?background:				(image) background image
 		gfxname:				(array) two name layouts
 		timer 					(object) blinking timer
@@ -83,14 +83,14 @@ function StartScheduler(context)
 function TimerDispatcher(context)
 {	
 	ProceedBlinking(context);
-	ProceedLayots(context);
+	ProceedLayers(context);
 	
 	UpdateScene(context);
 	
 	context.timer = setTimeout(function() { TimerDispatcher(context); }, context.interval);
 }
 
-function ProceedLayots(context)
+function ProceedLayers(context)
 {
 	context.counter += context.interval;
 	if (context.counter < 500)
@@ -137,6 +137,8 @@ function InitializeUI(context, params)
 	var root = document.getElementById(params.containerId);
 	root.innerHTML = "";
 
+	PrepareUIStyles();
+
 	CreateContainer(ui, params, root);
 	CreateTopPanel(ui, params);
 	CreateModePanel(ui, params);
@@ -147,6 +149,39 @@ function InitializeUI(context, params)
 	ui.nickname.onkeypress = function() { return context.current.validate(context.nickname); }
 	ui.mode.onchange = function() { OnChangeMode(context); };
 	ui.background.onchange = function() { OnChangeBackground(context); };
+}
+
+function PrepareUIStyles()
+{
+	/* button.style.padding = "2px";
+	button.style.fontFamily = "Consolas";
+	button.style.fontSize = "11px";
+	button.style.fontWeight = "bold";
+	button.style.border = "1px solid #333";
+	button.style.backgroundColor = "#666";
+	button.style.margin = "0px 3px 0px 2px"; */
+	InjectCSS("\
+		.q3gfx-panel-button\
+		{\
+			padding:2px;\
+			margin:0px 3px 0px 2px;\
+			font-family:Consolas;\
+			font-size:11px;\
+			font-weight:100;\
+			border:1px solid #333;\
+			background-color:#666;\
+		}\
+		.q3gfx-panel-button:hover {\
+			font-weight:bold;\
+			text-shadow:1px 1px 1px black;\
+		}\
+		.q3gfx-panel-button:active {\
+			font-weight:bold;\
+			padding:1px 1px 1px 1px;\
+			margin:0px 4px 0px 3px;\
+		}\
+	");
+
 }
 
 function CreateContainer(ui, params, root)
@@ -240,13 +275,14 @@ function MakeButton(text)
 	var button = document.createElement("input");
 	button.type = "button";
 	button.value = text;
-	button.style.padding = "2px";
+	/*button.style.padding = "2px";
 	button.style.fontFamily = "Consolas";
 	button.style.fontSize = "11px";
 	button.style.fontWeight = "bold";
 	button.style.border = "1px solid #333";
 	button.style.backgroundColor = "#666";
-	button.style.margin = "0px 3px 0px 2px";
+	button.style.margin = "0px 3px 0px 2px";*/
+	button.className = "q3gfx-panel-button";
 	return button;
 }
 
@@ -271,6 +307,13 @@ function MarkNickname(context, valid)
 {
 	var textbox = context.ui.nickname;
 	textbox.style.backgroundColor = (valid ? "#999" : "#c00");
+}
+
+function InjectCSS(css) 
+{
+	const style = document.createElement('style');
+	style.textContent = css;
+	document.getElementsByTagName('head')[0].appendChild(style);
 }
 
 // ====================
@@ -493,10 +536,10 @@ function CreateOSPPanel(mode)
 	var blink = MakeButton("Blink");
 	panel.appendChild(blink);
 
-	var half1 = MakeButton("Layot #1");
+	var half1 = MakeButton("Layer #1");
 	panel.appendChild(half1);
 
-	var half2 = MakeButton("Layot #2");
+	var half2 = MakeButton("Layer #2");
 	panel.appendChild(half2);
 
 	var rgb = MakeButton("RGB Front");
@@ -654,20 +697,20 @@ function ShrinkCPMAName(nickname)
 
 function ParseGFX_VQ3Style(context, nickname)
 {
-	// There is one name layot
+	// There is one name layer
 	context.gfxname[0] = context.gfxname[1] = ParseGFX_VQ3(nickname);
 }
 
 function ParseGFX_OSPStyle(context, nickname)
 {
-	// There are two name layots
+	// There are two name layers
 	context.gfxname[0] = ParseGFX_OSP(nickname, 0);
 	context.gfxname[1] = ParseGFX_OSP(nickname, 1);
 }
 
 function ParseGFX_CPMAStyle(context, nickname)
 {
-	// There is one name layot
+	// There is one name layer
 	context.gfxname[0] = context.gfxname[1] = ParseGFX_CPMA(nickname);
 }
 
