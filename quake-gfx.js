@@ -73,16 +73,32 @@ function Q3GFX_Initialize(params)
 
 function StartScheduler(context)
 {
-	context.interval   =  50;
-	context.counter    =  0;
-	context.opaque     =  1.0;
-	context.opaqueStep = -0.05;
+	context.interval =  50;
+	context.counter  =  0;
+	//context.opaque     =  1.0;
+	//context.opaqueStep = -0.05;
+
+	context.opaque = [
+		{
+			step:0,
+			duration:20,
+			opaque:1.0,
+			increament:0.05
+		},
+		{
+			step:0,
+			duration:20,
+			opaque:1.0,
+			increament:0.03
+		}
+	];
 	context.timer = setTimeout(function() { TimerDispatcher(context); }, context.interval);
 }
 
 function TimerDispatcher(context)
 {	
-	ProceedBlinking(context);
+	ProceedBlinking(context, context.opaque[0]);
+	ProceedBlinking(context, context.opaque[1]);
 	ProceedLayers(context);
 	
 	UpdateScene(context);
@@ -100,32 +116,23 @@ function ProceedLayers(context)
 	context.half = (context.half != 1 ? 1 : 0);
 }
 
-function ProceedBlinking(context)
-{ // TODO: refactor this shit
-	var opaque = context.opaque;
-	var opaqueStep = context.opaqueStep;
+function ProceedBlinking(context, opaque)
+{
+	opaque.step++;
 
-	opaque += opaqueStep;
-	if (opaque < 0.2)
+	if (opaque.step <= opaque.duration)
 	{
-		opaqueStep = 0.04;
-		opaque = 0.2;
+		opaque.opaque -= opaque.increament;
 	}
-	else if (opaque < 0.4)
+	else if (opaque.step < (opaque.duration * 2))
 	{
-		if (opaqueStep < 0)
-			opaqueStep = -0.04;
-		else
-			opaqueStep = 0.05;
+		opaque.opaque += opaque.increament;
 	}
-	else if (opaque > 0.95)
+	else
 	{
-		opaqueStep = -0.05;
-		opaque = 1.0;
+		opaque.step = 0;
+		opaque.opaque = 1.0;
 	}
-
-	context.opaque = opaque;
-	context.opaqueStep = opaqueStep;
 }
 
 // ====================
@@ -640,12 +647,19 @@ function InjectTagToNickname(context, tag)
 	nickname.value = InjectStringToString(value, pos, tag);
 	nickname.selectionStart = pos + tag.length;
 	nickname.selectionEnd = nickname.selectionStart;
+	nickname.focus();
 	nickname.dispatchEvent(new Event('input'));
+
 }
 
 function InjectStringToString(src, pos, str)
 {
 	return src.slice(0, pos) + str + src.slice(pos);
+}
+
+function GetSelectedText(elem)
+{
+	return elem.value.substring(elem.selectionStart, elem.selectionEnd);
 }
 
 // ====================
@@ -700,7 +714,7 @@ function DrawGFXText(context, gfx, params)
 	{
 		var entry = gfx[i];
 		
-		var opaque = (entry.blink ? context.opaque : 1.0);
+		var opaque = (entry.blink ? context.opaque[entry.blink - 1].opaque : 1.0);
 		
 		if (params.shadow)
 		{
@@ -784,7 +798,7 @@ function ParseGFX_VQ3(text)
 			symbol: chr,
 			color: color,
 			backgroundColor: [0, 0, 0],
-			blink: false
+			blink: 0
 		};
 	}
 	
@@ -835,7 +849,7 @@ function ParseGFX_VQ3(text)
 function ParseGFX_OSP(text, half)
 {
 	var command = false;
-	var blinking = false;
+	var blinking = 0; // 0 - no blink, 1 - fast, 2 - slow
 	var overwrite = false;
 	var skip = false;
 	var colors = { 
@@ -874,7 +888,7 @@ function ParseGFX_OSP(text, half)
 			{
 				case 'b':
 				case 'B':
-					blinking = true;
+					blinking = (chr == 'b' ? 1 : 2);
 					if (colors.custom)
 					{
 						colors.front = colors.back;
@@ -888,14 +902,14 @@ function ParseGFX_OSP(text, half)
 					skip = (half == 0);
 					break;
 				case 'n':
-					blinking = false;
+					blinking = 0;
 					if (colors.custom)
 					{
 						colors.front = colors.back;
 						colors.custom = false;
 					}
 				case 'N':
-					blinking = false;
+					blinking = 0;
 					if (colors.custom)
 					{
 						colors.front = colors.back;
@@ -960,7 +974,7 @@ function ParseGFX_CPMA(text)
 			symbol: chr,
 			color: color,
 			backgroundColor: [0, 0, 0],
-			blink: false
+			blink: 0
 		};
 	}
 	
