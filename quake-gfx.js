@@ -6,6 +6,7 @@
  - Bind action with buttons
  + Make a name limit builtin in a GTX parser
  - Make an output for /name command
+ - Add support for different blicking for ^b and ^B
 */
 
 function Q3GFX_Initialize(params)
@@ -26,7 +27,7 @@ function Q3GFX_Initialize(params)
 		?canvas: 				(object) canvas object where we draw a scene
 		ctx2d: 					(object) drawing 2D context for canvas
 		half: 					(int) name layer index
-		?background:				(image) background image
+		?background:			(image) background image
 		gfxname:				(array) two name layouts
 		timer 					(object) blinking timer
 		interval:				(int) timer interval
@@ -47,8 +48,7 @@ function Q3GFX_Initialize(params)
 			background:			(array)
 				image:			(image)
 				path:			(string)
-				name:			(string)
-			
+				name:			(string)	
 	*/
 	var context = { 
 		params: params,
@@ -137,7 +137,7 @@ function InitializeUI(context, params)
 	var root = document.getElementById(params.containerId);
 	root.innerHTML = "";
 
-	PrepareUIStyles();
+	LoadUIStyles();
 
 	CreateContainer(ui, params, root);
 	CreateTopPanel(ui, params);
@@ -146,20 +146,13 @@ function InitializeUI(context, params)
 	PrepareCanvas(context, ui);
 
 	ui.nickname.oninput = function() { OnChangeNickname(context); };
-	ui.nickname.onkeypress = function() { return context.current.validate(context.nickname); }
+	ui.nickname.onkeypress = function() { return context.current.validate(context.nickname); };
 	ui.mode.onchange = function() { OnChangeMode(context); };
 	ui.background.onchange = function() { OnChangeBackground(context); };
 }
 
-function PrepareUIStyles()
+function LoadUIStyles()
 {
-	/* button.style.padding = "2px";
-	button.style.fontFamily = "Consolas";
-	button.style.fontSize = "11px";
-	button.style.fontWeight = "bold";
-	button.style.border = "1px solid #333";
-	button.style.backgroundColor = "#666";
-	button.style.margin = "0px 3px 0px 2px"; */
 	InjectCSS("\
 		.q3gfx-panel-button\
 		{\
@@ -167,21 +160,25 @@ function PrepareUIStyles()
 			margin:0px 3px 0px 2px;\
 			font-family:Consolas;\
 			font-size:11px;\
-			font-weight:100;\
+			font-weight:bold;\
 			border:1px solid #333;\
 			background-color:#666;\
 		}\
 		.q3gfx-panel-button:hover {\
-			font-weight:bold;\
 			text-shadow:1px 1px 1px black;\
 		}\
 		.q3gfx-panel-button:active {\
-			font-weight:bold;\
 			padding:1px 1px 1px 1px;\
 			margin:0px 4px 0px 3px;\
 		}\
 	");
+}
 
+function InjectCSS(css)
+{
+	const style = document.createElement('style');
+	style.textContent = css;
+	document.getElementsByTagName('head')[0].appendChild(style);
 }
 
 function CreateContainer(ui, params, root)
@@ -205,6 +202,8 @@ function CreateTopPanel(ui, params)
 	var nickname = ui.nickname = document.createElement("input");
 	nickname.type = "text";
 	nickname.value = params.nickname;
+	nickname.selectionStart = 0;
+	nickname.selectionEnd = 0;
 	nickname.style.width  = "350px";
 	nickname.style.height = "18px";
 	nickname.style.fontFamily = "Consolas";
@@ -270,28 +269,42 @@ function MakeOption(text)
 	return option;
 }
 
-function MakeButton(text)
+function MakeButton(text, handler)
 {
 	var button = document.createElement("input");
 	button.type = "button";
 	button.value = text;
-	/*button.style.padding = "2px";
-	button.style.fontFamily = "Consolas";
-	button.style.fontSize = "11px";
-	button.style.fontWeight = "bold";
-	button.style.border = "1px solid #333";
-	button.style.backgroundColor = "#666";
-	button.style.margin = "0px 3px 0px 2px";*/
 	button.className = "q3gfx-panel-button";
+	button.onclick = handler;
 	return button;
 }
 
-function MakeColoredButton(text, font, back)
+function MakeColoredButton(text, font, back, handler)
 {
-	var color = MakeButton(text);
+	var color = MakeButton(text, handler);
 	color.style.backgroundColor = font;
 	color.style.color = back;
 	return color;
+}
+
+function MakeRGBButton(text, handler)
+{
+	var button = MakeButton(text, handler);
+	var rgb = document.createElement("input");
+	rgb.type = "color";
+	rgb.value = "#ff0000";
+	rgb.onchange = function() { handler(rgb.value.substring(1)); }
+	//rgb.oninput = function() { handler(rgb.value.substring(1)); };
+	//rgb.onclick = function() { rgb.value = "#cc9000"; };
+	button.appendChild(rgb);
+	button.onclick = function() { rgb.click(); };
+	
+	return button;
+}
+
+function MakeTagHandler(context, tag) 
+{ 
+	return function(){ AddTag(context, tag) };  
 }
 
 function MakePanel2Div()
@@ -307,13 +320,6 @@ function MarkNickname(context, valid)
 {
 	var textbox = context.ui.nickname;
 	textbox.style.backgroundColor = (valid ? "#999" : "#c00");
-}
-
-function InjectCSS(css) 
-{
-	const style = document.createElement('style');
-	style.textContent = css;
-	document.getElementsByTagName('head')[0].appendChild(style);
 }
 
 // ====================
@@ -384,7 +390,7 @@ function EnsureBackgroundImageLoaded(context)
 
 function IsValidVQ3Name(nickname)
 {
-	return /^[a-zA-Z\d\^\@\#\$\&\*\(\)\-\=\_\+\|\/\[\]\.\,\'\<\>\{\}\ ]*$/g.test(nickname);
+	return /^[a-zA-Z\d\^\!\@\#\$\&\*\(\)\-\=\_\+\|\/\[\]\.\,\'\<\>\{\}\ ]*$/g.test(nickname);
 }
 
 function IsValidCPMAName(nickname)
@@ -421,7 +427,7 @@ function InitializeModes(context, params, ui)
 			mode.parser = ParseGFX_VQ3Style;
 			mode.validate = IsValidVQ3Name;
 			mode.shrink = ShrinkVQ3Name;
-			CreateVQ3Panel(mode);
+			CreateVQ3Panel(context, mode);
 		}
 		else if (settings.mode == "osp")
 		{
@@ -429,7 +435,7 @@ function InitializeModes(context, params, ui)
 			mode.parser = ParseGFX_OSPStyle;
 			mode.validate = IsValidVQ3Name;
 			mode.shrink = ShrinkVQ3Name;
-			CreateOSPPanel(mode);
+			CreateOSPPanel(context, mode);
 		}
 		else if (settings.mode == "cpma")
 		{
@@ -437,7 +443,7 @@ function InitializeModes(context, params, ui)
 			mode.parser = ParseGFX_CPMAStyle;
 			mode.validate = IsValidCPMAName;
 			mode.shrink = ShrinkCPMAName;
-			CreateCPMAPanel(mode);
+			CreateCPMAPanel(context, mode);
 		}
 		else
 		{
@@ -504,91 +510,142 @@ function LoadCurrentMode(context)
 	ReparseNickname(context);
 }
 
-function CreateVQ3Panel(mode)
+function CreateVQ3Panel(context, mode)
 {
 	var panel = mode.ui.div;
-	panel.appendChild(MakeColoredButton("^0", "black", "white"));
-	panel.appendChild(MakeColoredButton("^1", "red", "white"));
-	panel.appendChild(MakeColoredButton("^2", "green", "white"));
-	panel.appendChild(MakeColoredButton("^3", "yellow", "black"));
-	panel.appendChild(MakeColoredButton("^4", "blue", "white"));
-	panel.appendChild(MakeColoredButton("^5", "aqua", "black"));
-	panel.appendChild(MakeColoredButton("^6", "magenta", "white"));
-	panel.appendChild(MakeColoredButton("^7", "white", "black"));
+	panel.appendChild(MakeColoredButton("^0", "#000000", "white", MakeTagHandler(context, "^0")));
+	panel.appendChild(MakeColoredButton("^1", "#ff0000", "white", MakeTagHandler(context, "^1")));
+	panel.appendChild(MakeColoredButton("^2", "#00ff00", "black", MakeTagHandler(context, "^2")));
+	panel.appendChild(MakeColoredButton("^3", "#ffff00", "black", MakeTagHandler(context, "^3")));
+	panel.appendChild(MakeColoredButton("^4", "#0000ff", "white", MakeTagHandler(context, "^4")));
+	panel.appendChild(MakeColoredButton("^5", "#00ffff", "black", MakeTagHandler(context, "^5")));
+	panel.appendChild(MakeColoredButton("^6", "#ff00ff", "white", MakeTagHandler(context, "^6")));
+	panel.appendChild(MakeColoredButton("^7", "#ffffff", "black", MakeTagHandler(context, "^7")));
 }
 
-function CreateOSPPanel(mode)
+function CreateOSPPanel(context, mode)
 {
 	var panel = mode.ui.div;
+	panel.appendChild(MakeColoredButton("^0", "#000000", "white", MakeTagHandler(context, "^0")));
+	panel.appendChild(MakeColoredButton("^1", "#ff0000", "white", MakeTagHandler(context, "^1")));
+	panel.appendChild(MakeColoredButton("^2", "#00ff00", "black", MakeTagHandler(context, "^2")));
+	panel.appendChild(MakeColoredButton("^3", "#ffff00", "black", MakeTagHandler(context, "^3")));
+	panel.appendChild(MakeColoredButton("^4", "#0000ff", "white", MakeTagHandler(context, "^4")));
+	panel.appendChild(MakeColoredButton("^5", "#00ffff", "black", MakeTagHandler(context, "^5")));
+	panel.appendChild(MakeColoredButton("^6", "#ff00ff", "white", MakeTagHandler(context, "^6")));
+	panel.appendChild(MakeColoredButton("^7", "#ffffff", "black", MakeTagHandler(context, "^7")));
+	panel.appendChild(MakeColoredButton("^8", "#ff8800", "black", MakeTagHandler(context, "^8")));
+	panel.appendChild(MakeColoredButton("^9", "#888888", "white", MakeTagHandler(context, "^9")));
 
-	panel.appendChild(MakeColoredButton("^0", "black", "white"));
-	panel.appendChild(MakeColoredButton("^1", "red", "white"));
-	panel.appendChild(MakeColoredButton("^2", "green", "white"));
-	panel.appendChild(MakeColoredButton("^3", "yellow", "black"));
-	panel.appendChild(MakeColoredButton("^4", "blue", "white"));
-	panel.appendChild(MakeColoredButton("^5", "aqua", "black"));
-	panel.appendChild(MakeColoredButton("^6", "magenta", "white"));
-	panel.appendChild(MakeColoredButton("^7", "white", "black"));
-	panel.appendChild(MakeColoredButton("^8", "#F80", "black"));
-	panel.appendChild(MakeColoredButton("^9", "#888", "white"));
-	panel.appendChild(MakeColoredButton("^0", "black", "white"));
-
-	var blink = MakeButton("Blink");
+	var blink = MakeButton("Fast Blink", function() { AddBlinking(context); });
 	panel.appendChild(blink);
 
-	var half1 = MakeButton("Layer #1");
+	blink = MakeButton("Slow Blink", function() { AddBlinking(context); });
+	panel.appendChild(blink);
+
+	var half1 = MakeButton("Layer #1", function() { AddLayer1(context); });
 	panel.appendChild(half1);
 
-	var half2 = MakeButton("Layer #2");
+	var half2 = MakeButton("Layer #2", function() { AddLayer2(context); });
 	panel.appendChild(half2);
 
-	var rgb = MakeButton("RGB Front");
+	var rgb = MakeRGBButton("RGB Front", function(rgb) { ApplyRGBFront(context, rgb); });
 	panel.appendChild(rgb);
 
-	var rgb2 = MakeButton("RGB Back");
+	var rgb2 = MakeRGBButton("RGB Back", function(rgb) { ApplyRGBBackground(context, rgb); });
 	panel.appendChild(rgb2);
 }
 
-function CreateCPMAPanel(mode)
+function CreateCPMAPanel(context, mode)
 {
 	var panel = mode.ui.div;
-	panel.appendChild(MakeColoredButton("^0", "black", "white"));
-	panel.appendChild(MakeColoredButton("^1", "red", "white"));
-	panel.appendChild(MakeColoredButton("^2", "green", "white"));
-	panel.appendChild(MakeColoredButton("^3", "yellow", "black"));
-	panel.appendChild(MakeColoredButton("^4", "blue", "white"));
-	panel.appendChild(MakeColoredButton("^5", "aqua", "black"));
-	panel.appendChild(MakeColoredButton("^6", "magenta", "white"));
-	panel.appendChild(MakeColoredButton("^7", "#BBB", "white"));
-	panel.appendChild(MakeColoredButton("^8", "#888", "black"));
-	panel.appendChild(MakeColoredButton("^9", "#77C", "white"));
-	panel.appendChild(MakeColoredButton("^0", "black", "white"));
-	panel.appendChild(MakeColoredButton("a", "#f00", "white"));
-	panel.appendChild(MakeColoredButton("b", "#f40", "white"));
-	panel.appendChild(MakeColoredButton("c", "#f80", "black"));
-	panel.appendChild(MakeColoredButton("d", "#fc0", "black"));
-	panel.appendChild(MakeColoredButton("e", "#ff0", "black"));
-	panel.appendChild(MakeColoredButton("f", "#cf0", "black"));
-	panel.appendChild(MakeColoredButton("g", "#8f0", "black"));
-	panel.appendChild(MakeColoredButton("h", "#4f0", "black"));
-	panel.appendChild(MakeColoredButton("i", "#0f0", "black"));
-	panel.appendChild(MakeColoredButton("j", "#0f4", "black"));
-	panel.appendChild(MakeColoredButton("k", "#0f8", "black"));
-	panel.appendChild(MakeColoredButton("l", "#0fc", "black"));
-	panel.appendChild(MakeColoredButton("m", "#0ff", "black"));
-	panel.appendChild(MakeColoredButton("n", "#0cf", "black"));
-	panel.appendChild(MakeColoredButton("o", "#08f", "white"));
-	panel.appendChild(MakeColoredButton("p", "#04f", "white"));
-	panel.appendChild(MakeColoredButton("q", "#00f", "white"));
-	panel.appendChild(MakeColoredButton("r", "#40f", "white"));
-	panel.appendChild(MakeColoredButton("s", "#80f", "black"));
-	panel.appendChild(MakeColoredButton("t", "#c0f", "black"));
-	panel.appendChild(MakeColoredButton("u", "#f0f", "white"));
-	panel.appendChild(MakeColoredButton("v", "#f0c", "white"));
-	panel.appendChild(MakeColoredButton("w", "#f08", "white"));
-	panel.appendChild(MakeColoredButton("x", "#f04", "white"));
-	panel.appendChild(MakeColoredButton("y", "#666", "white"));
-	panel.appendChild(MakeColoredButton("z", "#aaa", "black"));
+	panel.appendChild(MakeColoredButton("^0", "#000", "white", MakeTagHandler(context, "^0")));
+	panel.appendChild(MakeColoredButton("^1", "#f00", "white", MakeTagHandler(context, "^1")));
+	panel.appendChild(MakeColoredButton("^2", "#0f0", "black", MakeTagHandler(context, "^2")));
+	panel.appendChild(MakeColoredButton("^3", "yellow", "black", MakeTagHandler(context, "^3")));
+	panel.appendChild(MakeColoredButton("^4", "#00f", "white", MakeTagHandler(context, "^4")));
+	panel.appendChild(MakeColoredButton("^5", "aqua", "black", MakeTagHandler(context, "^5")));
+	panel.appendChild(MakeColoredButton("^6", "magenta", "white", MakeTagHandler(context, "^6")));
+	panel.appendChild(MakeColoredButton("^7", "#bbb", "white", MakeTagHandler(context, "^7")));
+	panel.appendChild(MakeColoredButton("^8", "#888", "black", MakeTagHandler(context, "^8")));
+	panel.appendChild(MakeColoredButton("^9", "#77c", "white", MakeTagHandler(context, "^9")));
+	panel.appendChild(MakeColoredButton("a", "#f00", "white", MakeTagHandler(context, "^a")));
+	panel.appendChild(MakeColoredButton("b", "#f40", "white", MakeTagHandler(context, "^b")));
+	panel.appendChild(MakeColoredButton("c", "#f80", "black", MakeTagHandler(context, "^c")));
+	panel.appendChild(MakeColoredButton("d", "#fc0", "black", MakeTagHandler(context, "^d")));
+	panel.appendChild(MakeColoredButton("e", "#ff0", "black", MakeTagHandler(context, "^e")));
+	panel.appendChild(MakeColoredButton("f", "#cf0", "black", MakeTagHandler(context, "^f")));
+	panel.appendChild(MakeColoredButton("g", "#8f0", "black", MakeTagHandler(context, "^g")));
+	panel.appendChild(MakeColoredButton("h", "#4f0", "black", MakeTagHandler(context, "^h")));
+	panel.appendChild(MakeColoredButton("i", "#0f0", "black", MakeTagHandler(context, "^i")));
+	panel.appendChild(MakeColoredButton("j", "#0f4", "black", MakeTagHandler(context, "^j")));
+	panel.appendChild(MakeColoredButton("k", "#0f8", "black", MakeTagHandler(context, "^k")));
+	panel.appendChild(MakeColoredButton("l", "#0fc", "black", MakeTagHandler(context, "^l")));
+	panel.appendChild(MakeColoredButton("m", "#0ff", "black", MakeTagHandler(context, "^m")));
+	panel.appendChild(MakeColoredButton("n", "#0cf", "black", MakeTagHandler(context, "^n")));
+	panel.appendChild(MakeColoredButton("o", "#08f", "white", MakeTagHandler(context, "^o")));
+	panel.appendChild(MakeColoredButton("p", "#04f", "white", MakeTagHandler(context, "^p")));
+	panel.appendChild(MakeColoredButton("q", "#00f", "white", MakeTagHandler(context, "^q")));
+	panel.appendChild(MakeColoredButton("r", "#40f", "white", MakeTagHandler(context, "^r")));
+	panel.appendChild(MakeColoredButton("s", "#80f", "black", MakeTagHandler(context, "^s")));
+	panel.appendChild(MakeColoredButton("t", "#c0f", "black", MakeTagHandler(context, "^t")));
+	panel.appendChild(MakeColoredButton("u", "#f0f", "white", MakeTagHandler(context, "^u")));
+	panel.appendChild(MakeColoredButton("v", "#f0c", "white", MakeTagHandler(context, "^v")));
+	panel.appendChild(MakeColoredButton("w", "#f08", "white", MakeTagHandler(context, "^w")));
+	panel.appendChild(MakeColoredButton("x", "#f04", "white", MakeTagHandler(context, "^x")));
+	panel.appendChild(MakeColoredButton("y", "#666", "white", MakeTagHandler(context, "^y")));
+	panel.appendChild(MakeColoredButton("z", "#aaa", "black", MakeTagHandler(context, "^z")));
+}
+
+// ====================
+//   Panel controls
+
+function AddBlinking(context)
+{
+	InjectTagToNickname(context, "^b");
+}
+
+function AddLayer1(context)
+{
+	InjectTagToNickname(context, "^f");
+}
+
+function AddLayer2(context)
+{
+	InjectTagToNickname(context, "^F");
+}
+
+function AddTag(context, tag)
+{
+	if (tag.length >= 1 && tag[0] != '^')
+		tag = '^' + tag;
+	InjectTagToNickname(context, tag);
+}
+
+function ApplyRGBFront(context, rgb)
+{
+	InjectTagToNickname(context, "^x" + rgb + "^n");
+}
+
+function ApplyRGBBackground(context, rgb)
+{
+	InjectTagToNickname(context, "^x" + rgb);
+}
+
+function InjectTagToNickname(context, tag)
+{
+	var nickname = context.ui.nickname;
+	var value = nickname.value;
+	var pos = nickname.selectionStart;
+	nickname.value = InjectStringToString(value, pos, tag);
+	nickname.selectionStart = pos + tag.length;
+	nickname.selectionEnd = nickname.selectionStart;
+	nickname.dispatchEvent(new Event('input'));
+}
+
+function InjectStringToString(src, pos, str)
+{
+	return src.slice(0, pos) + str + src.slice(pos);
 }
 
 // ====================
