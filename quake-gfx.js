@@ -3,10 +3,9 @@
 
 /* TODO: 
  - Edge bug, after a page reload it doesn't clear a previous nick
- - Bind action with buttons
- + Make a name limit builtin in a GTX parser
+ - Implement RGB buttons 
  - Make an output for /name command
- + Add support for different blicking for ^b and ^B
+ - Make background images
 */
 
 function Q3GFX_Initialize(params)
@@ -17,36 +16,36 @@ function Q3GFX_Initialize(params)
             canvasId:            (string) canvas id
             ?backgroundImage:    (string) background image path
             nickname:            (string) nick name
-            width:                (int) background image width
-            height:                (int) background image height
-            modes:                (array)
+            width:               (int) background image width
+            height:              (int) background image height
+            modes:               (array)
                 mode:            (string) mode name (vq3, osp, cpma)
                 maps:            (array) background images
-                    image:        (string) background image path
+                    image:       (string) background image path
                     name:        (string) map name
         ?canvas:                 (object) canvas object where we draw a scene
-        ctx2d:                     (object) drawing 2D context for canvas
-        half:                     (int) name layer index
-        ?background:            (image) background image
-        gfxname:                (array) two name layouts
-        timer                     (object) blinking timer
+        ctx2d:                   (object) drawing 2D context for canvas
+        half:                    (int) name layer index
+        ?background:             (image) background image
+        gfxname:                 (array) two name layouts
+        timer                    (object) blinking timer
         interval:                (int) timer interval
-        counter:                (int) 
-        opaque:                    (int)
-        opaqueStep:             (int)
-        ui:                        (dict)
-            container:            (div)
-            panel:                (div)
-            panel2:                (div) 
-            canvas:                (canvas) 
+        counter:                 (int) 
+        opaque:                  (int)
+        opaqueStep:              (int)
+        ui:                      (dict)
+            container:           (div)
+            panel:               (div)
+            panel2:              (div) 
+            canvas:              (canvas) 
             nickname:            (input) 
             mode:                (select) 
-            background:            (select) 
-        modes:                    (array)
-        current:                (dict) current mode
-            ui:                    (dict) UI elements
-            background:            (array)
-                image:            (image)
+            background:          (select) 
+        modes:                   (array)
+        current:                 (dict) current mode
+            ui:                  (dict) UI elements
+            background:          (array)
+                image:           (image)
                 path:            (string)
                 name:            (string)    
     */
@@ -291,19 +290,22 @@ function MakeColoredButton(text, font, back, handler)
     return color;
 }
 
-function MakeRGBButton(text, handler)
+function MakeRGBButton(context, text, handler)
 {
     var button = MakeButton(text, handler);
     var rgb = document.createElement("input");
     rgb.type = "color";
-    rgb.value = "#ff0000";
-    rgb.onchange = function() { handler(rgb.value.substring(1)); }
-    //rgb.oninput = function() { handler(rgb.value.substring(1)); };
-    //rgb.onclick = function() { alert("clack"); };
-    
+    rgb.value = "none";
+    //rgb.onchange = function() { handler(rgb.value.substring(1)); }
+    rgb.oninput = function() { handler(rgb.value.substring(1)); };
+
     button.appendChild(rgb);
-    button.onclick = function() { rgb.click(); };
-    
+    button.onclick = function() 
+    { 
+        rgb.click();
+        rgb.dispatchEvent(new Event('input'));
+    };
+
     return button;
 }
 
@@ -502,7 +504,7 @@ function LoadCurrentMode(context)
 {
     var mode = context.current;
     var background = mode.background;
-    
+
     // Display current mode bar
     mode.ui.div.style.display = 'block';
 
@@ -554,10 +556,10 @@ function CreateOSPPanel(context, mode)
     var half2 = MakeButton("Layer #2", MakeTagHandler(context, "^F"));
     panel.appendChild(half2);
 
-    var rgb = MakeRGBButton("RGB Front", function(rgb) { ApplyRGBFront(context, rgb); });
+    var rgb = MakeRGBButton(context, "RGB Front", function(rgb) { ApplyRGBFront(context, rgb); });
     panel.appendChild(rgb);
 
-    var rgb2 = MakeRGBButton("RGB Back", function(rgb) { ApplyRGBBackground(context, rgb); });
+    var rgb2 = MakeRGBButton(context, "RGB Back", function(rgb) { ApplyRGBBackground(context, rgb); });
     panel.appendChild(rgb2);
 }
 
@@ -612,14 +614,54 @@ function AddTag(context, tag)
     InjectTagToNickname(context, tag);
 }
 
+function AddSelectedTag(context, tag)
+{
+    var nickname = context.ui.nickname;
+    var pos = nickname.selectionStart;
+    AddTag(context, tag);
+    nickname.selectionEnd = nickname.selectionStart;
+    nickname.selectionStart = pos;
+    nickname.focus();
+}
+
 function ApplyRGBFront(context, rgb)
 {
-    InjectTagToNickname(context, "^x" + rgb + "^n");
+    var nickname = context.ui.nickname;
+    var value = nickname.value;
+    var pos = nickname.selectionStart;
+    var end = nickname.selectionEnd;
+
+    if (end == pos)
+    {
+        AddSelectedTag(context, "^x" + rgb + "^n");
+        return;
+    }
+    
+    nickname.value = value.slice(0, pos) + value.slice(end);
+    nickname.selectionStart = pos;
+    nickname.selectionEnd = pos;
+
+    AddSelectedTag(context, "^x" + rgb + "^n");
 }
 
 function ApplyRGBBackground(context, rgb)
 {
-    InjectTagToNickname(context, "^x" + rgb);
+    var nickname = context.ui.nickname;
+    var value = nickname.value;
+    var pos = nickname.selectionStart;
+    var end = nickname.selectionEnd;
+
+    if (end == pos)
+    {
+        AddSelectedTag(context, "^x" + rgb);
+        return;
+    }
+    
+    nickname.value = value.slice(0, pos) + value.slice(end);
+    nickname.selectionStart = pos;
+    nickname.selectionEnd = pos;
+
+    AddSelectedTag(context, "^x" + rgb);
 }
 
 function InjectTagToNickname(context, tag)
