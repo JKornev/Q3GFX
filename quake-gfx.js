@@ -6,7 +6,7 @@
  - Bind action with buttons
  + Make a name limit builtin in a GTX parser
  - Make an output for /name command
- - Add support for different blicking for ^b and ^B
+ + Add support for different blicking for ^b and ^B
 */
 
 function Q3GFX_Initialize(params)
@@ -75,9 +75,6 @@ function StartScheduler(context)
 {
 	context.interval =  50;
 	context.counter  =  0;
-	//context.opaque     =  1.0;
-	//context.opaqueStep = -0.05;
-
 	context.opaque = [
 		{
 			step:0,
@@ -89,7 +86,7 @@ function StartScheduler(context)
 			step:0,
 			duration:20,
 			opaque:1.0,
-			increament:0.03
+			increament:0.035
 		}
 	];
 	context.timer = setTimeout(function() { TimerDispatcher(context); }, context.interval);
@@ -302,7 +299,8 @@ function MakeRGBButton(text, handler)
 	rgb.value = "#ff0000";
 	rgb.onchange = function() { handler(rgb.value.substring(1)); }
 	//rgb.oninput = function() { handler(rgb.value.substring(1)); };
-	//rgb.onclick = function() { rgb.value = "#cc9000"; };
+	//rgb.onclick = function() { alert("clack"); };
+	
 	button.appendChild(rgb);
 	button.onclick = function() { rgb.click(); };
 	
@@ -544,16 +542,16 @@ function CreateOSPPanel(context, mode)
 	panel.appendChild(MakeColoredButton("^8", "#ff8800", "black", MakeTagHandler(context, "^8")));
 	panel.appendChild(MakeColoredButton("^9", "#888888", "white", MakeTagHandler(context, "^9")));
 
-	var blink = MakeButton("Fast Blink", function() { AddBlinking(context); });
+	var blink = MakeButton("Fast Blink", MakeTagHandler(context, "^b"));
 	panel.appendChild(blink);
 
-	blink = MakeButton("Slow Blink", function() { AddBlinking(context); });
+	blink = MakeButton("Slow Blink", MakeTagHandler(context, "^B"));
 	panel.appendChild(blink);
 
-	var half1 = MakeButton("Layer #1", function() { AddLayer1(context); });
+	var half1 = MakeButton("Layer #1", MakeTagHandler(context, "^f"));
 	panel.appendChild(half1);
 
-	var half2 = MakeButton("Layer #2", function() { AddLayer2(context); });
+	var half2 = MakeButton("Layer #2", MakeTagHandler(context, "^F"));
 	panel.appendChild(half2);
 
 	var rgb = MakeRGBButton("RGB Front", function(rgb) { ApplyRGBFront(context, rgb); });
@@ -606,21 +604,6 @@ function CreateCPMAPanel(context, mode)
 
 // ====================
 //   Panel controls
-
-function AddBlinking(context)
-{
-	InjectTagToNickname(context, "^b");
-}
-
-function AddLayer1(context)
-{
-	InjectTagToNickname(context, "^f");
-}
-
-function AddLayer2(context)
-{
-	InjectTagToNickname(context, "^F");
-}
 
 function AddTag(context, tag)
 {
@@ -882,8 +865,11 @@ function ParseGFX_OSP(text, half)
 		if (command)
 		{
 			if (skip && chr != 'N'&& chr != 'f'&& chr != 'F')
+			{
+				command = false;
 				continue;
-				
+			}
+
 			switch (chr)
 			{
 				case 'b':
