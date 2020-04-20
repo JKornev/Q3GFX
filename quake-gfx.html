@@ -1,12 +1,12 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
-	<title>Quake 3 colors</title>
-	<meta name="keywords" content="" />
-	<meta name="description" content="" />
-	<link rel="stylesheet" href="quake-gfx.css" type="text/css" />
-	<script src="quake-gfx.js"></script>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <title>Quake 3 colors</title>
+    <meta name="keywords" content="" />
+    <meta name="description" content="" />
+    <link rel="stylesheet" href="quake-gfx.css" type="text/css" />
+    <script src="quake-gfx.js"></script>
 </head>
 
 <body id="body" style="background-color:#111">
@@ -15,45 +15,44 @@
 
 <script>
 
-// Max name size
-// OSP is 35
-// VQ3 is 35
-// CPMA 16 and unlimited(??) colors
 var params = {
-	containerId:"content",
-	canvasId:"scene",
-	backgroundImage: "bg2.jpg",
-	nickname:"^b^1A^2n^3a^4r^5k^6i",
-	width:800,
-	height:450,
-	modes:[
-		{
-			mode:"vq3",
-			maps:[
-				{image:"bg1.jpg", name:"ZTNTOURNEY4"},
-				{image:"bg2.jpg", name:"Q3DM6"},
-			],
-		},
-		{
-			mode:"osp",
-			maps:[
-				{image:"bg3.jpg", name:"OXODM54"},
-				{image:"bg4.jpg", name:"Q3DM6"},
-				{image:"ts_ca1.jpg", name:"TS_CA1"},
-				{image:"mistery.jpg", name:"MISTERY"},
-			],
-			default:true
-		},
-		{
-			mode:"cpma",
-			maps:[
-				{image:"bg5.jpg", name:"AEROWALK"},
-				{image:"bg6.jpg", name:"CPM23"},
-			],
-		},
-	]
+    containerId:"content",
+    canvasId:"scene",
+    backgroundImage: "bg2.jpg",
+    nickname:"^b^1A^2n^3a^4r^5k^6i",
+    width:800,
+    height:450,
+    modes:[
+        {
+            mode:"vq3",
+            maps:[
+                {image:"bg_q3tourney4.jpg", name:"Q3TOURNEY4"},
+                {image:"bg_q3dm6.jpg", name:"Q3DM6"},
+            ],
+        },
+        {
+            mode:"osp",
+            maps:[
+                {image:"bg_q3dm6.jpg", name:"PRO-Q3DM6"},
+                {image:"bg_p1rate-overek.jpg", name:"P1RATE-OVEREK"},
+                {image:"bg_6++.jpg", name:"6++"},
+                {image:"bg_ts_ca1.jpg", name:"TS_CA1"},
+                {image:"bg_monastery.jpg", name:"MONASTERY"},
+                {image:"bg_uberkill.jpg", name:"UBERKILL"},
+                {image:"bg_oxodm54.jpg", name:"OXODM54"},
+            ],
+            default:true
+        },
+        {
+            mode:"cpma",
+            maps:[
+                {image:"bg_cpm22.jpg", name:"AEROWALK"},
+                {image:"bg_cpm20.jpg", name:"CPM20"},
+            ],
+        },
+    ]
 };
-		
+        
 var q3gfx = Q3GFX_Initialize(params);
 
 </script>
