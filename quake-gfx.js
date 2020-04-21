@@ -2,11 +2,12 @@
 //   Public interface
 
 /* TODO: 
- - Edge bug, after a page reload it doesn't clear a previous nick
- - Implement RGB buttons 
- - Make an output for /name command
- - Make background images and rename them to bg_*.jpg
+ - Load nickname tab
+ - Generate random nickname tab
+ - Add special chars to nickname editor
 
+ Edit   Generate   Copy
+ 
  Server status request API
  https://pt.dogi.us/?ip=meat.q3msk.ru&port=7700&skin=JSON&filterOffendingServerNameSymbols=true&displayGameName=true&enableAutoRefresh=true&levelshotsEnabled=true&enableGeoIP=true&levelshotTransitionAnimation=3
  https://pt.dogi.us/?ip=meat.q3msk.ru&port=7700&skin=JSON
@@ -154,6 +155,7 @@ function InitializeUI(context, params)
     CreateModePanel(ui, params);
     CreateCanvas(ui, params);
     PrepareCanvas(context, ui);
+    CreateBottomPanel(ui, params);
 
     ui.nickname.oninput = function() { OnChangeNickname(context); };
     ui.nickname.onkeypress = function() { return context.current.validate(context.nickname); };
@@ -221,6 +223,7 @@ function CreateTopPanel(ui, params)
     nickname.style.fontWeight = "bold";
     nickname.style.backgroundColor = "#999";
     nickname.style.border = "1px solid #666";
+    window.onload = function() { nickname.value = params.nickname; };
     panel.appendChild(nickname);
 
     var mode = ui.mode = MakeSelect();
@@ -256,6 +259,24 @@ function PrepareCanvas(context, ui)
     var ctx2d = context.ctx2d = ui.canvas.getContext("2d");
     ctx2d.fillStyle = "rgb(100, 100, 100)";
     ctx2d.fillRect(0, 0, params.width, params.height);
+}
+
+function CreateBottomPanel(ui, params)
+{
+    var panel = ui.panel3 = document.createElement("div");
+    panel.style.height = "22px";
+    panel.style.padding  = "5px";
+
+    var output = ui.output = document.createElement("span");
+    output.style.fontFamily = "Consolas";
+    output.style.fontSize = "18px";
+    output.style.fontWeight = "bold";
+    output.style.color = "#666";
+    output.style.padding = "2px";
+    //output.innerText = "\name \"" + params.nickname + "\"";
+    panel.appendChild(output);
+
+    ui.container.appendChild(panel);
 }
 
 function MakeSelect()
@@ -302,8 +323,7 @@ function MakeRGBButton(context, text, handler)
     var button = MakeButton(text, handler);
     var rgb = document.createElement("input");
     rgb.type = "color";
-    rgb.value = "none";
-    //rgb.onchange = function() { handler(rgb.value.substring(1)); }
+    rgb.value = "#000000";
     rgb.oninput = function() { handler(rgb.value.substring(1)); };
 
     button.appendChild(rgb);
@@ -404,7 +424,7 @@ function EnsureBackgroundImageLoaded(context)
 
 function IsValidVQ3Name(nickname)
 {
-    return /^[a-zA-Z\d\^\!\@\#\$\&\*\(\)\-\=\_\+\|\/\[\]\.\,\'\<\>\{\}\ ]*$/g.test(nickname);
+    return /^[a-zA-Z\d\^\!\@\#\$\&\*\(\)\-\=\_\+\|\/\[\]\.\,\'\<\>\{\}\ \?]*$/g.test(nickname);
 }
 
 function IsValidCPMAName(nickname)
@@ -419,6 +439,7 @@ function LoadNickname(context)
     var nickname = context.ui.nickname.value;
     var shrinked = context.current.shrink(nickname);
     MarkNickname(context, (shrinked == nickname));
+    context.ui.output.innerText = "\\name \"" + shrinked + "\"";
     context.nickname = shrinked;
 }
 
@@ -568,6 +589,9 @@ function CreateOSPPanel(context, mode)
 
     var rgb2 = MakeRGBButton(context, "RGB Back", function(rgb) { ApplyRGBBackground(context, rgb); });
     panel.appendChild(rgb2);
+
+    var stop = MakeButton("Stop Effect", MakeTagHandler(context, "^N"));
+    panel.appendChild(stop);
 }
 
 function CreateCPMAPanel(context, mode)
