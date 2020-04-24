@@ -7,7 +7,7 @@
  - Add special chars to nickname editor
 
  Edit   Generate   Copy
- 
+
  Server status request API
  https://pt.dogi.us/?ip=meat.q3msk.ru&port=7700&skin=JSON&filterOffendingServerNameSymbols=true&displayGameName=true&enableAutoRefresh=true&levelshotsEnabled=true&enableGeoIP=true&levelshotTransitionAnimation=3
  https://pt.dogi.us/?ip=meat.q3msk.ru&port=7700&skin=JSON
@@ -22,7 +22,7 @@ function Q3GFX_Initialize(params)
     context stucture tree
         params: 
             canvasId:            (string) canvas id
-            ?backgroundImage:    (string) background image path
+            symbolsMap:          (string) symbols map
             nickname:            (string) nick name
             width:               (int) background image width
             height:              (int) background image height
@@ -31,10 +31,14 @@ function Q3GFX_Initialize(params)
                 maps:            (array) background images
                     image:       (string) background image path
                     name:        (string) map name
-        ?canvas:                 (object) canvas object where we draw a scene
         ctx2d:                   (object) drawing 2D context for canvas
         half:                    (int) name layer index
-        ?background:             (image) background image
+        background:              (image) current background image
+        symbols:                 (image) image-map of symbols
+        map:                     (array) front and background symbols map context
+            canvas:
+            ctx2d:
+            color:
         gfxname:                 (array) two name layouts
         timer                    (object) blinking timer
         interval:                (int) timer interval
@@ -66,7 +70,7 @@ function Q3GFX_Initialize(params)
     
     InitializeUI(context, params);
     InitializeModes(context, params, context.ui);
-
+    LoadSymbolsMap(context, params);
     ReparseNickname(context);
 
     // Set blinking timer
@@ -158,7 +162,6 @@ function InitializeUI(context, params)
     CreateBottomPanel(ui, params);
 
     ui.nickname.oninput = function() { OnChangeNickname(context); };
-    ui.nickname.onkeypress = function() { return context.current.validate(context.nickname); };
     ui.mode.onchange = function() { OnChangeMode(context); };
     ui.background.onchange = function() { OnChangeBackground(context); };
 }
@@ -255,7 +258,6 @@ function CreateCanvas(ui, params)
 
 function PrepareCanvas(context, ui)
 {
-    context.canvas = ui.canvas;
     var ctx2d = context.ctx2d = ui.canvas.getContext("2d");
     ctx2d.fillStyle = "rgb(100, 100, 100)";
     ctx2d.fillRect(0, 0, params.width, params.height);
@@ -362,6 +364,8 @@ function MarkNickname(context, valid)
 function OnChangeNickname(context)
 {
     ReparseNickname(context);
+    if (!context.current.validate(context.nickname))
+        MarkNickname(context, false);
     UpdateScene(context);
 }
 
@@ -424,7 +428,20 @@ function EnsureBackgroundImageLoaded(context)
 
 function IsValidVQ3Name(nickname)
 {
-    return /^[a-zA-Z\d\^\!\@\#\$\&\*\(\)\-\=\_\+\|\/\[\]\.\,\'\<\>\{\}\ \?]*$/g.test(nickname);
+    //TODO: at least one not-special char must have
+    for (var i = 0; i < nickname.length; i++)
+    {
+        var code = nickname[i].charCodeAt(0);
+        
+        if (code == 0 || code == 10)
+            return false;
+
+        //TODO: add all bad chars
+        if (code == "%".charCodeAt(0) || code == "\\".charCodeAt(0) || code == ";".charCodeAt(0))
+            return false;
+    }
+
+    return true;
 }
 
 function IsValidCPMAName(nickname)
@@ -438,9 +455,22 @@ function LoadNickname(context)
 {
     var nickname = context.ui.nickname.value;
     var shrinked = context.current.shrink(nickname);
+    shrinked = TransformTopCodeChars(shrinked);
     MarkNickname(context, (shrinked == nickname));
     context.ui.output.innerText = "\\name \"" + shrinked + "\"";
     context.nickname = shrinked;
+}
+
+function TransformTopCodeChars(nickname)
+{
+    var transformed = "";
+    for (var i = 0; i < nickname.length; i++)
+    {
+        var code = nickname[i].charCodeAt(0);
+        transformed += (code > 127 ? "." : nickname[i]);
+
+    }
+    return transformed;
 }
 
 // ====================
@@ -721,6 +751,40 @@ function GetSelectedText(elem)
 // ====================
 //   GFX
 
+function LoadSymbolsMap(context, params)
+{
+    context.map = []; // 0 - background, 1 - front
+    for (var i = 0; i < 2; i++)
+    {
+        var entry = {};
+        entry.canvas = document.createElement("canvas");
+        entry.canvas.width = entry.canvas.height = 64 * 16;
+        entry.ctx2d = entry.canvas.getContext("2d");
+        entry.color = "";
+        context.map[i] = entry;
+    }
+
+    AsyncLoadImage(context, params.symbolsMap, function(result)
+        {
+            if (result.error != "success")
+                return;
+            
+            for (var i = 0; i < 2; i++)
+            {
+                var entry = context.map[i];
+                var ctx2d = entry.ctx2d;
+                ctx2d.drawImage(result.image, 0, 0, 64 * 16, 64 * 16);
+                ctx2d.fillStyle = entry.color;
+                ctx2d.globalCompositeOperation = "source-in";
+                ctx2d.fillRect(0, 0, 64 * 16, 64 * 16);
+                ctx2d.globalCompositeOperation = "source-over";
+            }
+
+            context.symbols = result.image;
+        }
+    );
+}
+
 function UpdateScene(context)
 {
     var ctx2d  = context.ctx2d;
@@ -730,7 +794,7 @@ function UpdateScene(context)
     if (context.hasOwnProperty("background"))
         ctx2d.drawImage(context.background, 0, 0, params.width, params.height);
     
-    DrawNicknameBar(context, context.gfxname[context.half])
+    DrawNicknameBar(context, context.gfxname[context.half]);
 }
 
 function DrawNicknameBar(context, gfx)
@@ -752,35 +816,70 @@ function DrawNicknameBar(context, gfx)
 
 function DrawGFXText(context, gfx, params)
 {
-    var ctx2d  = context.ctx2d;
-    var spacing = params.size - (params.size / 8);
-    var offset = params.size / 15;
-    
-    if (offset == 0)
-        offset = 1;
-    
-    ctx2d.font = "700 " + params.size + "px Verdana";
-    ctx2d.textAlign = "center";
-    
+    var spacing = params.size;
+    var offset = params.size / 12;
+
+    if (!context.hasOwnProperty("symbols"))
+        return;
+
     var x = params.x;
     if (params.center)
         x = (context.params.width - (spacing * gfx.length) + spacing) / 2;
-    
+
     for (var i = 0; i < gfx.length; i++)
     {
         var entry = gfx[i];
         
         var opaque = (entry.blink ? context.opaque[entry.blink - 1].opaque : 1.0);
         
+        var code = entry.symbol.charCodeAt(0);
+        var symPosX = code % 16;
+        var symPosY = (code - symPosX) / 16;
+
         if (params.shadow)
         {
-            ctx2d.fillStyle = ConvertVectorToRGBA(entry.backgroundColor, opaque);
-            ctx2d.fillText(entry.symbol, x + offset + (i * spacing), params.y + offset); 
+            DrawSymbolUsingMap(
+                context,
+                context.map[0],
+                ConvertVectorToRGBA(entry.backgroundColor, opaque),
+                symPosX,
+                symPosY,
+                x + (i * spacing) + offset,
+                params.y + offset, 
+                params.size,
+                params.size
+            );
         }
         
-        ctx2d.fillStyle = ConvertVectorToRGBA(entry.color, opaque);
-        ctx2d.fillText(entry.symbol, x + (i * spacing), params.y); 
+        DrawSymbolUsingMap(
+            context,
+            context.map[1],
+            ConvertVectorToRGBA(entry.color, opaque),
+            symPosX,
+            symPosY,
+            x + (i * spacing),
+            params.y, 
+            params.size,
+            params.size
+        );
     }
+}
+
+function DrawSymbolUsingMap(context, map, color, symX, symY, x, y, w, h)
+{
+    if (color != map.color)
+    {
+        var ctx2d  = map.ctx2d;
+        map.color = color;
+        ctx2d.drawImage(context.symbols, 0, 0, 64 * 16, 64 * 16, 0, 0, 64 * 16, 64 * 16);
+        ctx2d.fillStyle = map.color;
+        ctx2d.globalCompositeOperation = "source-in";
+        ctx2d.fillRect(0, 0, 64 * 16, 64 * 16);
+        ctx2d.globalCompositeOperation = "source-over";
+    }
+
+    var ctx2d  = context.ctx2d;
+    ctx2d.drawImage(map.canvas, 64 * symX, 64 * symY, 64, 64, x, y, w, h);
 }
 
 function ReparseNickname(context)
@@ -805,7 +904,7 @@ function ShrinkCPMAName(nickname)
 
     for (var i = 0; i < nickname.length; i++)
     {
-        // What about case ^^^^^
+        //TODO: what about case ^^^^^
         if (nickname[i] == '^')
             skip = true;
         else if (skip)
