@@ -187,6 +187,29 @@ function LoadUIStyles()
             margin:0px 4px 0px 3px;\
         }\
     ");
+
+    InjectCSS("\
+        .q3gfx-symbols-button\
+        {\
+            width:16px;\
+            height:16px;\
+            padding:2px;\
+            margin:0px 3px -7px 2px;\
+            font-family:Consolas;\
+            border:1px solid #333;\
+            background-color:#666;\
+        }\
+        .q3gfx-symbols-button:hover {\
+            padding:1px;\
+            width:18px;\
+            height:18px;\
+        }\
+        .q3gfx-symbols-button:active {\
+            padding:0px;\
+            width:20px;\
+            height:20px;\
+        }\
+    ");
 }
 
 function InjectCSS(css)
@@ -269,13 +292,18 @@ function CreateBottomPanel(ui, params)
     panel.style.height = "22px";
     panel.style.padding  = "5px";
 
-    var output = ui.output = document.createElement("span");
+    var output = ui.output = document.createElement("input");
+    output.type = "text";
+    output.readOnly = true;
+    output.style.width = "780px";
+    output.style.height = "20px";
     output.style.fontFamily = "Consolas";
     output.style.fontSize = "18px";
     output.style.fontWeight = "bold";
     output.style.color = "#666";
+    output.style.backgroundColor = "rgba(0, 0, 0, 0)";
     output.style.padding = "2px";
-    //output.innerText = "\name \"" + params.nickname + "\"";
+    output.style.border = "0px";
     panel.appendChild(output);
 
     ui.container.appendChild(panel);
@@ -338,9 +366,23 @@ function MakeRGBButton(context, text, handler)
     return button;
 }
 
+function MakeSymbolsButton(chr, handler)
+{
+    var image = new Image();
+    image.className = "q3gfx-symbols-button";
+    image.src = "symbol-" + chr + ".png";
+    image.onclick = handler;
+    return image;
+}
+
 function MakeTagHandler(context, tag) 
 { 
-    return function(){ AddTag(context, tag) };  
+    return function(){ AddTag(context, tag); };  
+}
+
+function MakeSymbolHandler(context, symbol) 
+{ 
+    return function(){ InjectTagToNickname(context, String.fromCodePoint(symbol)); };  
 }
 
 function MakePanel2Div()
@@ -433,7 +475,7 @@ function IsValidVQ3Name(nickname)
     {
         var code = nickname[i].charCodeAt(0);
         
-        if (code == 0 || code == 10)
+        if (code == 0 || code == 10 || code == 13)
             return false;
 
         //TODO: add all bad chars
@@ -457,7 +499,7 @@ function LoadNickname(context)
     var shrinked = context.current.shrink(nickname);
     shrinked = TransformTopCodeChars(shrinked);
     MarkNickname(context, (shrinked == nickname));
-    context.ui.output.innerText = "\\name \"" + shrinked + "\"";
+    context.ui.output.value = "\\name \"" + shrinked + "\"";
     context.nickname = shrinked;
 }
 
@@ -555,6 +597,8 @@ function InitializeModes(context, params, ui)
     }
 
     context.ui.mode.selectedIndex = index;
+    
+    CreateSymbolsPanel(context, ui);
     LoadCurrentMode(context);
 }
 
@@ -565,6 +609,7 @@ function LoadCurrentMode(context)
 
     // Display current mode bar
     mode.ui.div.style.display = 'block';
+    ShowSymbolsPanel(context, false);
 
     // Load new background list
     context.ui.background.innerHTML = "";
@@ -575,9 +620,50 @@ function LoadCurrentMode(context)
     ReparseNickname(context);
 }
 
+function CreateSymbolsPanel(context, ui)
+{
+    var panel = ui.symbols = MakePanel2Div();
+
+    var button = MakeButton("Back", function() { ShowSymbolsPanel(context, false); });
+    panel.appendChild(button);
+
+    panel.appendChild(MakeSymbolsButton(1, MakeSymbolHandler(context, 1)));
+    panel.appendChild(MakeSymbolsButton(2, MakeSymbolHandler(context, 2)));
+    panel.appendChild(MakeSymbolsButton(3, MakeSymbolHandler(context, 3)));
+    panel.appendChild(MakeSymbolsButton(4, MakeSymbolHandler(context, 4)));
+    panel.appendChild(MakeSymbolsButton(7, MakeSymbolHandler(context, 7)));
+    panel.appendChild(MakeSymbolsButton(8, MakeSymbolHandler(context, 8)));
+    panel.appendChild(MakeSymbolsButton(9, MakeSymbolHandler(context, 9)));
+    panel.appendChild(MakeSymbolsButton(11, MakeSymbolHandler(context, 11)));
+    panel.appendChild(MakeSymbolsButton(14, MakeSymbolHandler(context, 14)));
+    panel.appendChild(MakeSymbolsButton(16, MakeSymbolHandler(context, 16)));
+    panel.appendChild(MakeSymbolsButton(17, MakeSymbolHandler(context, 17)));
+    panel.appendChild(MakeSymbolsButton(18, MakeSymbolHandler(context, 18)));
+    panel.appendChild(MakeSymbolsButton(19, MakeSymbolHandler(context, 19)));
+    panel.appendChild(MakeSymbolsButton(20, MakeSymbolHandler(context, 20)));
+    panel.appendChild(MakeSymbolsButton(21, MakeSymbolHandler(context, 21)));
+    panel.appendChild(MakeSymbolsButton(23, MakeSymbolHandler(context, 23)));
+    panel.appendChild(MakeSymbolsButton(24, MakeSymbolHandler(context, 24)));
+    panel.appendChild(MakeSymbolsButton(25, MakeSymbolHandler(context, 25)));
+    panel.appendChild(MakeSymbolsButton(26, MakeSymbolHandler(context, 26)));
+    panel.appendChild(MakeSymbolsButton(27, MakeSymbolHandler(context, 27)));
+    panel.appendChild(MakeSymbolsButton(29, MakeSymbolHandler(context, 29)));
+    panel.appendChild(MakeSymbolsButton(30, MakeSymbolHandler(context, 30)));
+    panel.appendChild(MakeSymbolsButton(31, MakeSymbolHandler(context, 31)));
+    panel.appendChild(MakeSymbolsButton(127, MakeSymbolHandler(context, 127)));
+    
+    panel.style.display = 'none';
+
+    ui.panel2.appendChild(panel);
+}
+
 function CreateVQ3Panel(context, mode)
 {
     var panel = mode.ui.div;
+    
+    var blink = MakeButton("Symbols", function() { ShowSymbolsPanel(context, true); });
+    panel.appendChild(blink);
+
     panel.appendChild(MakeColoredButton("^0", "#000000", "white", MakeTagHandler(context, "^0")));
     panel.appendChild(MakeColoredButton("^1", "#ff0000", "white", MakeTagHandler(context, "^1")));
     panel.appendChild(MakeColoredButton("^2", "#00ff00", "black", MakeTagHandler(context, "^2")));
@@ -591,6 +677,10 @@ function CreateVQ3Panel(context, mode)
 function CreateOSPPanel(context, mode)
 {
     var panel = mode.ui.div;
+
+    var blink = MakeButton("Symbols", function() { ShowSymbolsPanel(context, true); });
+    panel.appendChild(blink);
+
     panel.appendChild(MakeColoredButton("^0", "#000000", "white", MakeTagHandler(context, "^0")));
     panel.appendChild(MakeColoredButton("^1", "#ff0000", "white", MakeTagHandler(context, "^1")));
     panel.appendChild(MakeColoredButton("^2", "#00ff00", "black", MakeTagHandler(context, "^2")));
@@ -627,6 +717,8 @@ function CreateOSPPanel(context, mode)
 function CreateCPMAPanel(context, mode)
 {
     var panel = mode.ui.div;
+    //var blink = MakeButton("Symbols", MakeTagHandler(context, "^b"));
+    //panel.appendChild(blink);
     panel.appendChild(MakeColoredButton("^0", "#000", "white", MakeTagHandler(context, "^0")));
     panel.appendChild(MakeColoredButton("^1", "#f00", "white", MakeTagHandler(context, "^1")));
     panel.appendChild(MakeColoredButton("^2", "#0f0", "black", MakeTagHandler(context, "^2")));
@@ -748,6 +840,22 @@ function GetSelectedText(elem)
     return elem.value.substring(elem.selectionStart, elem.selectionEnd);
 }
 
+function ShowSymbolsPanel(context, show)
+{
+    var mode = context.current;
+    var ui = context.ui;
+    if (show)
+    {
+        mode.ui.div.style.display = 'none';
+        ui.symbols.style.display = 'block';
+    }
+    else
+    {
+        mode.ui.div.style.display = 'block';
+        ui.symbols.style.display = 'none';
+    }
+}
+
 // ====================
 //   GFX
 
@@ -799,10 +907,11 @@ function UpdateScene(context)
 
 function DrawNicknameBar(context, gfx)
 {
+    //TODO: optimize settings for new symbols
     var params = {
         x:context.params.width / 2,
         y:context.params.height / 6.0,
-        size:40,
+        size:45,
         shadow:true,
         center:true
     };
