@@ -4,7 +4,6 @@
 /* TODO: 
  - Load nickname tab
  - Generate random nickname tab
- - Add special chars to nickname editor
 
  Edit   Generate   Copy
 
@@ -907,19 +906,23 @@ function UpdateScene(context)
 
 function DrawNicknameBar(context, gfx)
 {
-    //TODO: optimize settings for new symbols
+    var font = 45;
+    var max = 16;
+
     var params = {
         x:context.params.width / 2,
         y:context.params.height / 6.0,
-        size:45,
+        size:(context.params.width - (font * 2)) / max,
         shadow:true,
         center:true
     };
     
-    // Uber-mega algo on a plate
-    if (gfx.length > 22)
-        params.size = params.size - ((gfx.length - 23) * 1.4);
-    
+    if (gfx.length > max)
+    {
+        var total = max * params.size;
+        params.size = total / gfx.length;
+    }
+
     DrawGFXText(context, gfx, params);
 }
 
@@ -933,7 +936,7 @@ function DrawGFXText(context, gfx, params)
 
     var x = params.x;
     if (params.center)
-        x = (context.params.width - (spacing * gfx.length) + spacing) / 2;
+        x = (context.params.width - (spacing * gfx.length) ) / 2;
 
     for (var i = 0; i < gfx.length; i++)
     {
