@@ -1,26 +1,12 @@
 // ====================
 //   Public interface
 
-/* TODO: 
- - Load nickname tab
- - Generate random nickname tab
-
- Edit   Generate   Copy
-
- Server status request API
- https://pt.dogi.us/?ip=meat.q3msk.ru&port=7700&skin=JSON&filterOffendingServerNameSymbols=true&displayGameName=true&enableAutoRefresh=true&levelshotsEnabled=true&enableGeoIP=true&levelshotTransitionAnimation=3
- https://pt.dogi.us/?ip=meat.q3msk.ru&port=7700&skin=JSON
- 
- Response
- {"version":"ParaTracker 1.4.5","mapreqEnabled":true,"mapreqTextMessage":"Click here to add levelshots","filterOffendingServerNameSymbols":true,"levelshotTransitionTime":1,"levelshotDisplayTime":3,"allowTransitions":1,"enableGeoIP":true,"enableAutoRefresh":true,"serverIPAddress":"meat.q3msk.ru","serverPort":"7700","serverNumericAddress":"95.181.198.85","paraTrackerSkin":"json","levelshotTransitionsEnabled":true,"levelshotTransitionAnimation":3,"noPlayersOnlineMessage":"No players online.","autoRefreshTimer":30,"RConEnable":true,"RConFloodProtect":20,"displayGameName":true,"utilitiesPath":"utilities/","connectionErrorMessage":"No response.","levelshotsArray":["images/levelshots/quake 3 arena/q3dm17_1.png","images/levelshots/quake 3 arena/q3dm17_2.png","images/levelshots/quake 3 arena/q3dm17_3.png","images/levelshots/quake 3 arena/q3dm17_4.png","images/levelshots/quake 3 arena/q3dm17_5.png","images/levelshots/quake 3 arena/q3dm17_6.png"],"reconnectTimeout":15,"serverOnline":true,"serverInfo":{"maxPlayers":"45","gamename":"Quake III Arena","modName":"excessiveplus","mapname":"q3dm17","gametype":"FFA","geoIPcountryCode":"ru","geoIPcountryName":"Russia","team1score":null,"team2score":null,"team3score":null,"team4score":null,"levelshotPlaceholder":"images/levelshots/defaults/q3.png","servernameUnfiltered":"    ^^2****2020 FREE    ^0","servername":"    ^^2****2020 FREE    ^0","serverPing":"164","parseTime":"6.406"},"parsedInfo":[{"name":"dmflags","flags":["No fall damage"]}],"info":{".Admin":"X",".E-mail":"unknown",".Location":"Moscow, RU","bot_minplayers":"2","dmflags":"8","fraglimit":"55","g_gametype":"0","g_motd":"http://q3msk.ru - 2020 FREE","g_needpass":"0","g_smoothClients":"1","gamename":"excessiveplus","gameversion":"OSP v1.03a","Info":")      3          ) ) ) ) ) ) i ) ","mapname":"q3dm17","sv_allowDownload":"1","sv_dlURL":"http://n2.q3msk.ru/files/maps","sv_floodProtect":"1","sv_hostname":"    ^^2****2020 FREE    ^0","sv_maxclients":"45","sv_minRate":"75000","timelimit":"9","Uptime":"15 days, 15:10:08","version":"Q3 1.32e linux-x86_64 Mar 30 2020","x_gametype":"0","xp_date":"Jun 20 2014","xp_version":"2.3 2020_MEAT.c 085a5112587300f84bb32d58177d266a ^2***2020 Free"},"players":[{"name":"WOJTEK BRODNICA","score":0,"ping":"34","team":"0"},{"name":"^2[QD]^7Magadan","score":5,"ping":"90","team":"0"},{"name":"KingKong JiF","score":6,"ping":"50","team":"0"},{"name":"^3DEN","score":2,"ping":"20","team":"0"},{"name":"^3Supreme","score":13,"ping":"23","team":"0"},{"name":"^1M^0asta^1B^0lasta","score":2,"ping":"40","team":"0"},{"name":"you N1 /","score":6,"ping":"196","team":"0"},{"name":"^1NONAME","score":8,"ping":"6","team":"0"}]}
-*/
-
 function Q3GFX_Initialize(params)
 {
     /*
     context stucture tree
-        params: 
-            canvasId:            (string) canvas id
+        params:
+            resources:           (string) path to a dir with images
             symbolsMap:          (string) symbols map
             nickname:            (string) nick name
             width:               (int) background image width
@@ -227,6 +213,7 @@ function CreateContainer(ui, params, root)
     container.style.backgroundColor = "rgba(33, 33, 33, 0.3)";
     container.style.padding = "0px";
     container.style.margin = "0px";
+    container.align = "left";
     root.appendChild(container);
 }
 
@@ -365,12 +352,12 @@ function MakeRGBButton(context, text, handler)
     return button;
 }
 
-function MakeSymbolsButton(chr, handler)
+function MakeSymbolsButton(context, chr)
 {
     var image = new Image();
     image.className = "q3gfx-symbols-button";
-    image.src = "symbol-" + chr + ".png";
-    image.onclick = handler;
+    image.src = MakeResourcePath(context, "chr_" + chr + ".png");
+    image.onclick = MakeSymbolHandler(context, chr);
     return image;
 }
 
@@ -469,7 +456,8 @@ function EnsureBackgroundImageLoaded(context)
 
 function IsValidVQ3Name(nickname)
 {
-    //TODO: at least one not-special char must have
+    var valid = false;
+
     for (var i = 0; i < nickname.length; i++)
     {
         var code = nickname[i].charCodeAt(0);
@@ -477,19 +465,38 @@ function IsValidVQ3Name(nickname)
         if (code == 0 || code == 10 || code == 13)
             return false;
 
-        //TODO: add all bad chars
-        if (code == "%".charCodeAt(0) || code == "\\".charCodeAt(0) || code == ";".charCodeAt(0))
+        if (!valid && code >= 32)
+            valid = true;
+
+        if (IsBadQ3Char(code))
             return false;
     }
 
-    return true;
+    return valid;
 }
 
 function IsValidCPMAName(nickname)
 {
-    // We keep IsValid..() functions because a name validation possible can be different for different modes
-    // so we have to check it and then implement this function or remove IsValid..() stuff
+    for (var i = 0; i < nickname.length; i++)
+    {
+        var code = nickname[i].charCodeAt(0);
+        if (code < 32 || code >= 127)
+            return false;
+
+        if (IsBadQ3Char(code))
+            return false;
+    }
+
     return IsValidVQ3Name(nickname);
+}
+
+function IsBadQ3Char(code)
+{
+    //TODO: add all bad chars
+    if (code == "%".charCodeAt(0) || code == "\\".charCodeAt(0) || code == ";".charCodeAt(0))
+        return true;
+    
+    return false;
 }
 
 function LoadNickname(context)
@@ -574,7 +581,7 @@ function InitializeModes(context, params, ui)
                 EnsureBackgroundImageLoaded(context);
             }
 
-            AsyncLoadImage(mode.background[b], settings.maps[b].image, OnLoadImageForMode);
+            AsyncLoadImage(mode.background[b], MakeResourcePath(context, settings.maps[b].image), OnLoadImageForMode);
         }
         
         context.ui.mode.appendChild(MakeOption(mode.name));
@@ -617,6 +624,8 @@ function LoadCurrentMode(context)
 
     SwitchToSelectedBackground(context);
     ReparseNickname(context);
+    if (!mode.validate(context.nickname))
+        MarkNickname(context, false);
 }
 
 function CreateSymbolsPanel(context, ui)
@@ -626,30 +635,30 @@ function CreateSymbolsPanel(context, ui)
     var button = MakeButton("Back", function() { ShowSymbolsPanel(context, false); });
     panel.appendChild(button);
 
-    panel.appendChild(MakeSymbolsButton(1, MakeSymbolHandler(context, 1)));
-    panel.appendChild(MakeSymbolsButton(2, MakeSymbolHandler(context, 2)));
-    panel.appendChild(MakeSymbolsButton(3, MakeSymbolHandler(context, 3)));
-    panel.appendChild(MakeSymbolsButton(4, MakeSymbolHandler(context, 4)));
-    panel.appendChild(MakeSymbolsButton(7, MakeSymbolHandler(context, 7)));
-    panel.appendChild(MakeSymbolsButton(8, MakeSymbolHandler(context, 8)));
-    panel.appendChild(MakeSymbolsButton(9, MakeSymbolHandler(context, 9)));
-    panel.appendChild(MakeSymbolsButton(11, MakeSymbolHandler(context, 11)));
-    panel.appendChild(MakeSymbolsButton(14, MakeSymbolHandler(context, 14)));
-    panel.appendChild(MakeSymbolsButton(16, MakeSymbolHandler(context, 16)));
-    panel.appendChild(MakeSymbolsButton(17, MakeSymbolHandler(context, 17)));
-    panel.appendChild(MakeSymbolsButton(18, MakeSymbolHandler(context, 18)));
-    panel.appendChild(MakeSymbolsButton(19, MakeSymbolHandler(context, 19)));
-    panel.appendChild(MakeSymbolsButton(20, MakeSymbolHandler(context, 20)));
-    panel.appendChild(MakeSymbolsButton(21, MakeSymbolHandler(context, 21)));
-    panel.appendChild(MakeSymbolsButton(23, MakeSymbolHandler(context, 23)));
-    panel.appendChild(MakeSymbolsButton(24, MakeSymbolHandler(context, 24)));
-    panel.appendChild(MakeSymbolsButton(25, MakeSymbolHandler(context, 25)));
-    panel.appendChild(MakeSymbolsButton(26, MakeSymbolHandler(context, 26)));
-    panel.appendChild(MakeSymbolsButton(27, MakeSymbolHandler(context, 27)));
-    panel.appendChild(MakeSymbolsButton(29, MakeSymbolHandler(context, 29)));
-    panel.appendChild(MakeSymbolsButton(30, MakeSymbolHandler(context, 30)));
-    panel.appendChild(MakeSymbolsButton(31, MakeSymbolHandler(context, 31)));
-    panel.appendChild(MakeSymbolsButton(127, MakeSymbolHandler(context, 127)));
+    panel.appendChild(MakeSymbolsButton(context, 1));
+    panel.appendChild(MakeSymbolsButton(context, 2));
+    panel.appendChild(MakeSymbolsButton(context, 3));
+    panel.appendChild(MakeSymbolsButton(context, 4));
+    panel.appendChild(MakeSymbolsButton(context, 7));
+    panel.appendChild(MakeSymbolsButton(context, 8));
+    panel.appendChild(MakeSymbolsButton(context, 9));
+    panel.appendChild(MakeSymbolsButton(context, 11));
+    panel.appendChild(MakeSymbolsButton(context, 14));
+    panel.appendChild(MakeSymbolsButton(context, 16));
+    panel.appendChild(MakeSymbolsButton(context, 17));
+    panel.appendChild(MakeSymbolsButton(context, 18));
+    panel.appendChild(MakeSymbolsButton(context, 19));
+    panel.appendChild(MakeSymbolsButton(context, 20));
+    panel.appendChild(MakeSymbolsButton(context, 21));
+    panel.appendChild(MakeSymbolsButton(context, 23));
+    panel.appendChild(MakeSymbolsButton(context, 24));
+    panel.appendChild(MakeSymbolsButton(context, 25));
+    panel.appendChild(MakeSymbolsButton(context, 26));
+    panel.appendChild(MakeSymbolsButton(context, 27));
+    panel.appendChild(MakeSymbolsButton(context, 29));
+    panel.appendChild(MakeSymbolsButton(context, 30));
+    panel.appendChild(MakeSymbolsButton(context, 31));
+    panel.appendChild(MakeSymbolsButton(context, 127));
     
     panel.style.display = 'none';
 
@@ -716,8 +725,6 @@ function CreateOSPPanel(context, mode)
 function CreateCPMAPanel(context, mode)
 {
     var panel = mode.ui.div;
-    //var blink = MakeButton("Symbols", MakeTagHandler(context, "^b"));
-    //panel.appendChild(blink);
     panel.appendChild(MakeColoredButton("^0", "#000", "white", MakeTagHandler(context, "^0")));
     panel.appendChild(MakeColoredButton("^1", "#f00", "white", MakeTagHandler(context, "^1")));
     panel.appendChild(MakeColoredButton("^2", "#0f0", "black", MakeTagHandler(context, "^2")));
@@ -826,7 +833,6 @@ function InjectTagToNickname(context, tag)
     nickname.selectionEnd = nickname.selectionStart;
     nickname.focus();
     nickname.dispatchEvent(new Event('input'));
-
 }
 
 function InjectStringToString(src, pos, str)
@@ -871,7 +877,7 @@ function LoadSymbolsMap(context, params)
         context.map[i] = entry;
     }
 
-    AsyncLoadImage(context, params.symbolsMap, function(result)
+    AsyncLoadImage(context, MakeResourcePath(context, params.symbolsMap), function(result)
         {
             if (result.error != "success")
                 return;
@@ -899,8 +905,15 @@ function UpdateScene(context)
     
     // Draw background image
     if (context.hasOwnProperty("background"))
+    {
         ctx2d.drawImage(context.background, 0, 0, params.width, params.height);
-    
+    }
+    else
+    {
+        ctx2d.fillStyle = "rgb(100, 100, 100)";
+        ctx2d.fillRect(0, 0, params.width, params.height);
+    }
+
     DrawNicknameBar(context, context.gfxname[context.half]);
 }
 
@@ -1490,3 +1503,7 @@ function AsyncLoadImage(context, image, callback)
     imageObject.src = image;
 }
 
+function MakeResourcePath(context, name)
+{
+    return context.params.resources + "\\" + name;
+}
