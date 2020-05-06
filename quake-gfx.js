@@ -1,6 +1,15 @@
 // ====================
 //   Public interface
 
+// TODO:
+// - Implement tabs (Edit, Generate, Copy)
+// - Implement Generate page
+//   ! Should be nickname field, clan generate button. Other area have to contains multiple generated preview
+// - Implement Copy page
+//   ! Server field and outputs
+// - Implement hits (errors - too long, no space, notes - copy symbolic nickname to cfg)
+// - Implements autoloading over URL
+
 function Q3GFX_Initialize(params)
 {
     /*
@@ -700,10 +709,10 @@ function CreateOSPPanel(context, mode)
     panel.appendChild(MakeColoredButton("^8", "#ff8800", "black", MakeTagHandler(context, "^8")));
     panel.appendChild(MakeColoredButton("^9", "#888888", "white", MakeTagHandler(context, "^9")));
 
-    var blink = MakeButton("Fast Blink", MakeTagHandler(context, "^b"));
+    var blink = MakeButton("Fast Fading", MakeTagHandler(context, "^b"));
     panel.appendChild(blink);
 
-    blink = MakeButton("Slow Blink", MakeTagHandler(context, "^B"));
+    blink = MakeButton("Slow Fading", MakeTagHandler(context, "^B"));
     panel.appendChild(blink);
 
     var half1 = MakeButton("Layer #1", MakeTagHandler(context, "^f"));
